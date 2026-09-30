@@ -9,6 +9,12 @@ vite.config.*.timestamp-*
 *-debug.log*
 logs/
 *.log
+*.swp
+*.swo
+.DS_Store
+.vscode/
+.idea/
+.history/
 .claude-replay.*
 .tmp-*
 

@@ -7,9 +7,22 @@ export type StoreItem = {
   image: string
   url: string
   priceNote?: string
+  productId?: string
+  mediaId?: string
+  hotspotId?: string
+  category?: string
+  color?: string
+  pattern?: string
+  currency?: string
+  productImage?: string
+  retailerUrl?: string
+  matchType?: "Exact match" | "Closest match" | "Similar item"
+  matchConfidence?: number
+  sourceUrl?: string
+  similarProductIds?: string[]
 }
 
-export type Product = StoreItem & { x: number; y: number; similar: StoreItem[] }
+export type Product = StoreItem & { x: number; y: number; similar: StoreItem[]; offsetX?: number }
 
 export const FIRST_IMAGE_PRODUCTS: Product[] = [
   {

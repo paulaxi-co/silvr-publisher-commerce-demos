@@ -1,9 +1,12 @@
-import { useState, useRef, useEffect, type CSSProperties } from "react"
+import { useState, useRef, useEffect, lazy, Suspense, type CSSProperties } from "react"
 import videoGif from "./imports/53084f29ac28fc87da1ed84ba3f0e23f.gif"
 import spidermanImg from "./imports/Screenshot_2026-08-31_at_6.13.06_pm.png"
 import friendsImg from "./imports/83e21e98daa1b315e24d2f416dc59049.jpg"
 
 import { FIRST_IMAGE_PRODUCTS, VIDEO_PRODUCTS, MULTIPERSON_PRODUCTS_1, MULTIPERSON_PRODUCTS_2, type Product, type StoreItem } from "./productCatalog"
+import { isEligibleEditorialMedia } from "./publisherCatalog"
+
+const PublisherPage = lazy(() => import("./PublisherPages").then((module) => ({ default: module.PublisherPage })))
 
 const MULTIPERSON_IMAGE_1 = spidermanImg
 const MULTIPERSON_IMAGE_2 = friendsImg
@@ -105,8 +108,9 @@ const Hotspot = ({ product, isActive, onHover, onLeave, onOpen }: {
 }) => (
   <button
     type="button"
+    data-silvr-ui="true"
     className={`hotspot absolute z-20 flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-200 hover:scale-110 focus-visible:scale-110 sm:h-12 sm:w-12 ${isActive ? "scale-110" : ""}`}
-    style={{ top: `${product.y}%`, left: `${product.x}%`, transform: "translate(-50%, -50%)" }}
+    style={{ top: `${product.y}%`, left: `calc(${product.x}% + ${product.offsetX ?? 0}px)`, transform: "translate(-50%, -50%)" }}
     onMouseEnter={() => onHover(product)}
     onMouseLeave={onLeave}
     onFocus={() => onHover(product)}
@@ -128,6 +132,7 @@ const ProductPreview = ({ product, onEnter, onLeave, onOpen, onSimilar }: {
   onOpen: () => void; onSimilar: () => void
 }) => (
   <div
+    data-silvr-ui="true"
     className="product-preview absolute z-30 rounded-2xl border border-black/10 bg-white/95 p-3 shadow-2xl backdrop-blur-md"
     style={{
       "--preview-left": product.x > 62 ? "auto" : `${Math.max(product.x, 4)}%`,
@@ -181,25 +186,46 @@ const BottomSheet = ({ isOpen, onClose, products, selectedProduct, onSelectProdu
   onSelectProduct: (product: Product | StoreItem | null) => void; similarTarget: Product | null;
   onShowSimilar: (product: Product) => void; onClearSimilar: () => void; cobranded?: boolean
 }) => {
+  const dialogRef = useRef<HTMLElement>(null)
+  const restoreFocusRef = useRef<HTMLElement | null>(null)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
   useEffect(() => {
     if (!isOpen) return
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose() }
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const focusTarget = dialogRef.current?.querySelector<HTMLElement>("button[aria-label='Close product details']")
+    focusTarget?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeRef.current()
+      if (event.key !== "Tab" || !dialogRef.current) return
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')).filter((element) => element.getClientRects().length > 0)
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (!first || !last) { event.preventDefault(); return }
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+      else if (!dialogRef.current.contains(document.activeElement)) { event.preventDefault(); first.focus() }
+    }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [isOpen, onClose])
+  }, [isOpen])
+  useEffect(() => {
+    if (!isOpen) restoreFocusRef.current?.focus()
+  }, [isOpen])
 
   const relatedProduct = products.find((product) => product.id === selectedProduct?.id)
   const similarItems = similarTarget?.similar || relatedProduct?.similar || []
-  const showingSimilar = Boolean(similarTarget)
+  const showingSimilar = Boolean(similarTarget && selectedProduct?.id === similarTarget.id)
   const heading = showingSimilar ? "Similar items" : selectedProduct ? "Item details" : "Shop the Look"
 
   return (
     <>
-      <div className={`fixed inset-0 z-50 bg-black/30 transition-opacity duration-300 ${isOpen ? "opacity-100" : "pointer-events-none opacity-0"}`} onClick={onClose} aria-hidden="true" />
+      <div className={`silvr-ui fixed inset-0 z-50 bg-black/30 transition-opacity duration-300 ${isOpen ? "opacity-100" : "pointer-events-none opacity-0"}`} onClick={onClose} aria-hidden="true" />
       <section
         role="dialog" aria-modal={isOpen} aria-label={heading} aria-hidden={!isOpen}
-        className={`fixed bottom-0 left-0 right-0 z-60 mx-auto flex max-h-[88dvh] w-full max-w-2xl flex-col rounded-t-3xl bg-white shadow-2xl transition-transform duration-300 ease-out lg:inset-y-0 lg:right-0 lg:left-auto lg:mx-0 lg:max-h-none lg:w-[440px] lg:rounded-none ${isOpen ? "translate-y-0 lg:translate-x-0" : "translate-y-full lg:translate-y-0 lg:translate-x-full"}`}
-        style={{ pointerEvents: isOpen ? "auto" : "none" }}
+        ref={dialogRef} tabIndex={-1} inert={!isOpen}
+        className={`silvr-ui fixed bottom-0 left-0 right-0 z-[60] mx-auto flex max-h-[88dvh] w-full max-w-2xl flex-col rounded-t-3xl bg-white shadow-2xl transition-transform duration-300 ease-out lg:inset-y-0 lg:right-0 lg:left-auto lg:mx-0 lg:max-h-none lg:w-[440px] lg:rounded-none ${isOpen ? "translate-y-0 lg:translate-x-0" : "translate-y-full lg:translate-y-0 lg:translate-x-full"}`}
+        style={{ pointerEvents: isOpen ? "auto" : "none", paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-6">
           <div>
@@ -210,7 +236,7 @@ const BottomSheet = ({ isOpen, onClose, products, selectedProduct, onSelectProdu
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
           {selectedProduct && !showingSimilar && (
-            <button type="button" onClick={() => onSelectProduct(null)} className="mb-4 flex min-h-10 items-center gap-1 text-sm font-medium"><Icons.ChevronLeft /> All items</button>
+            <button type="button" onClick={() => similarTarget ? onSelectProduct(similarTarget) : onSelectProduct(null)} className="mb-4 flex min-h-10 items-center gap-1 text-sm font-medium"><Icons.ChevronLeft /> {similarTarget ? "Back to similar items" : "All items"}</button>
           )}
           {showingSimilar && (
             <button type="button" onClick={onClearSimilar} className="mb-4 flex min-h-10 items-center gap-1 text-sm font-medium"><Icons.ChevronLeft /> Back to item</button>
@@ -218,7 +244,7 @@ const BottomSheet = ({ isOpen, onClose, products, selectedProduct, onSelectProdu
           {showingSimilar ? (
             <>
               <p className="mb-4 text-sm text-gray-600">Based on {similarTarget?.name}</p>
-              <div className="grid grid-cols-2 gap-3">{similarItems.map((item) => <ProductCard key={item.id} product={item} similar onClick={() => { onClearSimilar(); onSelectProduct(item) }} />)}</div>
+              <div className="grid grid-cols-2 gap-3">{similarItems.map((item) => <ProductCard key={item.id} product={item} similar onClick={() => onSelectProduct(item)} />)}</div>
             </>
           ) : selectedProduct ? (
             <>
@@ -229,12 +255,14 @@ const BottomSheet = ({ isOpen, onClose, products, selectedProduct, onSelectProdu
                 <div><p className="text-xs font-semibold uppercase tracking-widest text-gray-500">{relatedProduct ? selectedProduct.brand : "Similar find · " + selectedProduct.brand}</p><h3 className="mt-1 text-xl font-semibold">{selectedProduct.name}</h3></div>
                 <p className="shrink-0 text-lg font-semibold">{selectedProduct.price}</p>
               </div>
-              {similarItems.length > 0 && <button type="button" onClick={() => onShowSimilar(relatedProduct || products.find((p) => p.similar.some((s) => s.id === selectedProduct.id))!)} className="mt-6 flex min-h-20 w-full items-center gap-3 rounded-xl border-y border-gray-200 py-3 text-left">
+              {relatedProduct && similarItems.length > 0 && <button type="button" onClick={() => onShowSimilar(relatedProduct)} className="mt-6 flex min-h-20 w-full items-center gap-3 rounded-xl border-y border-gray-200 py-3 text-left">
                 <span className="min-w-0 flex-1"><strong className="block text-base">See similar items</strong><span className="text-sm text-gray-500">Based on this match</span></span>
                 <span className="flex shrink-0 -space-x-2">{similarItems.slice(0, 3).map((item) => <img key={item.id} src={item.image} alt="" className="h-10 w-10 rounded-md border-2 border-white bg-gray-100 object-cover" />)}</span>
                 <span aria-hidden="true" className="text-2xl text-gray-500">›</span>
               </button>}
-              <p className="mt-4 text-xs leading-5 text-gray-500">Product photos shown here may differ from retailer listings. Check the retailer's photos, size, availability and final price before buying. Research updated 28 Sep 2026.</p>
+              {selectedProduct.matchType && <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-gray-600">{selectedProduct.matchType}{selectedProduct.category ? ` · ${selectedProduct.category}` : ""}</p>}
+              {(selectedProduct.color || selectedProduct.pattern) && <p className="mt-1 text-xs leading-5 text-gray-500">{[selectedProduct.color, selectedProduct.pattern].filter(Boolean).join(" · ")}</p>}
+              <p className="mt-2 text-xs leading-5 text-gray-500">Check current size, availability and final price at the retailer.</p>
               {selectedProduct.priceNote && <p className="mt-2 text-xs leading-5 text-gray-500">{selectedProduct.priceNote}</p>}
               <a href={selectedProduct.url} target="_blank" rel="noopener noreferrer" className="mt-6 flex min-h-14 w-full items-center justify-center rounded-xl bg-[#17171d] text-base font-medium text-white" aria-label={`Shop ${selectedProduct.name} at ${selectedProduct.brand} in a new tab`}>Shop at store ↗</a>
             </>
@@ -248,24 +276,65 @@ const BottomSheet = ({ isOpen, onClose, products, selectedProduct, onSelectProdu
   )
 }
 
-const ShopChip = ({ label, count, active, onClick, video = false }: {
-  label: string; count?: number; active: boolean; onClick: () => void; video?: boolean
+const ShopChip = ({ label, count, active, onClick, video = false, corner = "bottom-left" }: {
+  label: string; count?: number; active: boolean; onClick: () => void; video?: boolean; corner?: "bottom-left" | "top-left"
 }) => (
-  <div className="shop-chip-layer pointer-events-none absolute inset-0 z-30 p-4">
-    <div className="shop-chip-sticky flex justify-start">
-      <button type="button" onClick={(event) => { event.stopPropagation(); onClick() }} className={`pointer-events-auto flex min-h-11 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-md transition-colors ${video ? "border border-white/30 bg-gray-950/75 text-white hover:bg-gray-950" : "border border-gray-900/10 bg-white/95 text-gray-900 hover:bg-white"}`} aria-label={count === undefined ? label : `${label}, ${count} items`}>
-        <Icons.ShoppingBag /> {label} {count !== undefined && !active && <span className="border-l border-current/20 pl-2 opacity-70">{count}</span>}
-      </button>
-    </div>
-  </div>
+  <button data-silvr-ui="true" type="button" onClick={(event) => { event.stopPropagation(); onClick() }} className={`shop-chip absolute left-3 z-30 flex min-h-11 max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-md transition-colors sm:left-4 ${corner === "top-left" ? "top-3 sm:top-4" : "bottom-3 sm:bottom-4"} ${video ? "border border-white/30 bg-gray-950/75 text-white hover:bg-gray-950" : "border border-gray-900/10 bg-white/95 text-gray-900 hover:bg-white"}`} aria-label={count === undefined ? label : `${label}, ${count} items`}>
+    <Icons.ShoppingBag /> {label} {count !== undefined && !active && <span className="border-l border-current/20 pl-2 opacity-70">{count}</span>}
+  </button>
 )
 
-const ShoppableImage = ({ imageSrc, products, nativeWidth }: { imageSrc: string; products: Product[]; nativeWidth: number }) => {
+function useVisibleEditorialMedia(ref: React.RefObject<HTMLElement | null>, type: "image" | "video", alt: string, products: Product[]) {
+  const [eligible, setEligible] = useState(false)
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    let visible = false
+    const update = () => {
+      const rect = element.getBoundingClientRect()
+      setEligible(visible && isEligibleEditorialMedia({ type, editorial: true, alt, products }, rect.width, rect.height))
+    }
+    const intersection = new IntersectionObserver((entries) => {
+      visible = entries[0]?.isIntersecting ?? false
+      update()
+    }, { threshold: 0.12 })
+    intersection.observe(element)
+    const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update)
+    resize?.observe(element)
+    update()
+    return () => { intersection.disconnect(); resize?.disconnect() }
+  }, [ref, type, alt, products])
+  return eligible
+}
+
+export const ShoppableImage = ({ imageSrc, products, nativeWidth, imageAlt = "Fashion editorial", mediaId = "editorial-image", shopLabel = "Shop This Image", frameClassName = "", chipCorner = "bottom-left" }: { imageSrc: string; products: Product[]; nativeWidth: number; imageAlt?: string; mediaId?: string; shopLabel?: string; frameClassName?: string; chipCorner?: "bottom-left" | "top-left" }) => {
   const [shopMode, setShopMode] = useState(false)
   const [preview, setPreview] = useState<Product | null>(null)
   const [selected, setSelected] = useState<Product | StoreItem | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [similarTarget, setSimilarTarget] = useState<Product | null>(null)
+  const mediaRef = useRef<HTMLDivElement>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
+  const imageRef = useRef<HTMLImageElement>(null)
+  const [frameSize, setFrameSize] = useState({ width: 0, height: 0, naturalWidth: 0, naturalHeight: 0 })
+  const eligible = useVisibleEditorialMedia(mediaRef, "image", imageAlt, products)
+  useEffect(() => {
+    const frame = frameRef.current, image = imageRef.current
+    if (!frame || !image) return
+    const update = () => setFrameSize({ width: frame.clientWidth, height: frame.clientHeight, naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight })
+    const resize = new ResizeObserver(update)
+    resize.observe(frame)
+    image.addEventListener("load", update)
+    update()
+    return () => { resize.disconnect(); image.removeEventListener("load", update) }
+  }, [imageSrc])
+  const displayedProducts = products.map((product) => {
+    const { width, height, naturalWidth, naturalHeight } = frameSize
+    if (!width || !height || !naturalWidth || !naturalHeight || getComputedStyle(imageRef.current!).objectFit !== "cover") return product
+    const scale = Math.max(width / naturalWidth, height / naturalHeight)
+    const imageWidth = naturalWidth * scale, imageHeight = naturalHeight * scale
+    return { ...product, x: ((width - imageWidth) / 2 + imageWidth * product.x / 100) / width * 100, y: ((height - imageHeight) / 2 + imageHeight * product.y / 100) / height * 100 }
+  }).filter((product) => product.x >= 3 && product.x <= 97 && product.y >= 3 && product.y <= 97)
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const clearLeave = () => { if (leaveTimer.current) clearTimeout(leaveTimer.current) }
   const scheduleLeave = () => { clearLeave(); leaveTimer.current = setTimeout(() => setPreview(null), 160) }
@@ -273,63 +342,74 @@ const ShoppableImage = ({ imageSrc, products, nativeWidth }: { imageSrc: string;
   const openItem = (product: Product) => { clearLeave(); setPreview(null); setSelected(product); setSheetOpen(true) }
   const closeSheet = () => { setSheetOpen(false); setSimilarTarget(null); setSelected(null) }
   return (
-    <div className="relative mx-auto my-8 w-full md:my-10 lg:my-12" style={{ maxWidth: nativeWidth }}>
-      <div className="relative bg-gray-100" onClick={() => setPreview(null)}>
-        <img src={imageSrc} alt="Fashion editorial" className={`block h-auto w-full transition-[filter] duration-300 ${shopMode ? "brightness-95" : ""}`} />
+    <div ref={mediaRef} data-silvr-media data-media-id={mediaId} data-media-type="image" className="relative mx-auto my-8 w-full md:my-10 lg:my-12" style={{ maxWidth: nativeWidth }}>
+      <div ref={frameRef} className={`relative bg-gray-100 ${frameClassName}`} onClick={() => setPreview(null)}>
+        <img ref={imageRef} src={imageSrc} alt={imageAlt} className={`block h-auto w-full transition-[filter] duration-300 ${shopMode ? "brightness-95 blur-[1px]" : ""}`} />
         {shopMode && <>
           <div className="absolute inset-0 bg-black/5 pointer-events-none" />
-          {products.map((product) => <Hotspot key={product.id} product={product} isActive={preview?.id === product.id} onHover={(p) => { clearLeave(); setPreview(p) }} onLeave={scheduleLeave} onOpen={openItem} />)}
+          {displayedProducts.map((product) => <Hotspot key={product.id} product={product} isActive={preview?.id === product.id} onHover={(p) => { clearLeave(); setPreview(p) }} onLeave={scheduleLeave} onOpen={openItem} />)}
           {preview && <ProductPreview product={preview} onEnter={clearLeave} onLeave={scheduleLeave} onOpen={() => openItem(preview)} onSimilar={() => { setSelected(preview); setSimilarTarget(preview); setSheetOpen(true); setPreview(null) }} />}
-          <button type="button" className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-gray-950/65 text-white" onClick={(event) => { event.stopPropagation(); setShopMode(false); setPreview(null) }} aria-label="Exit shop mode"><Icons.X size={16} /></button>
+          <button data-silvr-ui="true" type="button" className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-gray-950/65 text-white" onClick={(event) => { event.stopPropagation(); setShopMode(false); setPreview(null) }} aria-label="Exit shop mode"><Icons.X size={16} /></button>
         </>}
-        <ShopChip label="Shop This Image" active={shopMode} onClick={() => { if (!shopMode) setShopMode(true); else { setSelected(null); setSimilarTarget(null); setSheetOpen(true) } }} />
+        {eligible && displayedProducts.length > 0 && <ShopChip label={shopLabel} corner={chipCorner} active={shopMode} onClick={() => { if (!shopMode) setShopMode(true); else { setSelected(null); setSimilarTarget(null); setSheetOpen(true) } }} />}
       </div>
       <BottomSheet isOpen={sheetOpen} onClose={closeSheet} products={products} selectedProduct={selected} onSelectProduct={setSelected} similarTarget={similarTarget} onShowSimilar={setSimilarTarget} onClearSimilar={() => setSimilarTarget(null)} />
     </div>
   )
 }
 
-const ShoppableVideo = () => {
+export const ShoppableVideo = ({ products = VIDEO_PRODUCTS, mediaId = "editorial-video", mediaAlt = "Fashion campaign video", shopLabel = "Shop This Video", cue = { timestampSeconds: 15, label: "00:15", durationSeconds: 45 }, videoSrc, poster }: { products?: Product[]; mediaId?: string; mediaAlt?: string; shopLabel?: string; cue?: { timestampSeconds: number; label: string; durationSeconds?: number }; videoSrc?: string; poster?: string }) => {
   const [isPlaying, setIsPlaying] = useState(true)
   const [shopMode, setShopMode] = useState(false)
   const [preview, setPreview] = useState<Product | null>(null)
   const [selected, setSelected] = useState<Product | StoreItem | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [similarTarget, setSimilarTarget] = useState<Product | null>(null)
+  const videoRef = useRef<HTMLDivElement>(null)
+  const eligible = useVisibleEditorialMedia(videoRef, "video", mediaAlt, products)
   const imgRef = useRef<HTMLImageElement>(null)
+  const videoElementRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const clearLeave = () => { if (leaveTimer.current) clearTimeout(leaveTimer.current) }
   const scheduleLeave = () => { clearLeave(); leaveTimer.current = setTimeout(() => setPreview(null), 160) }
   useEffect(() => () => clearLeave(), [])
   useEffect(() => {
+    if (videoSrc) {
+      if (isPlaying) videoElementRef.current?.play().catch(() => setIsPlaying(false))
+      else videoElementRef.current?.pause()
+      return
+    }
     if (isPlaying || !imgRef.current || !canvasRef.current) return
     const image = imgRef.current, canvas = canvasRef.current
     canvas.width = image.naturalWidth; canvas.height = image.naturalHeight
     canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height)
-  }, [isPlaying])
-  const togglePlay = () => { setIsPlaying((value) => !value); setShopMode(false); setPreview(null) }
+  }, [isPlaying, videoSrc])
+  const togglePlay = () => { setIsPlaying((value) => !value); setPreview(null) }
+  const formatTime = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
   const openItem = (product: Product) => { clearLeave(); setPreview(null); setSelected(product); setSheetOpen(true) }
   const closeSheet = () => { setSheetOpen(false); setSelected(null); setSimilarTarget(null) }
   return (
-    <div className="relative mx-auto my-8 w-full max-w-[540px] bg-gray-950 md:my-10">
+    <div ref={videoRef} data-silvr-media data-media-id={mediaId} data-media-type="video" className="relative mx-auto my-8 w-full max-w-[540px] bg-gray-950 md:my-10">
       <div className="relative aspect-[540/500]" onClick={() => { if (preview) setPreview(null); else togglePlay() }}>
-        <img ref={imgRef} src={videoGif} alt="Fashion campaign video" className={`h-full w-full object-contain ${isPlaying ? "" : "hidden"}`} />
-        <canvas ref={canvasRef} className={`h-full w-full object-contain ${isPlaying ? "hidden" : ""}`} />
-        {!isPlaying && !shopMode && <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-white"><div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur"><Icons.Play /></div></div>}
-        {!isPlaying && shopMode && <>
-          <div className="pointer-events-none absolute inset-0 bg-black/20" />
-          {VIDEO_PRODUCTS.map((product) => <Hotspot key={product.id} product={product} isActive={preview?.id === product.id} onHover={(p) => { clearLeave(); setPreview(p) }} onLeave={scheduleLeave} onOpen={openItem} />)}
-          {preview && <ProductPreview product={preview} onEnter={clearLeave} onLeave={scheduleLeave} onOpen={() => openItem(preview)} onSimilar={() => { setSelected(preview); setSimilarTarget(preview); setSheetOpen(true); setPreview(null) }} />}
-          <button type="button" onClick={(event) => { event.stopPropagation(); setShopMode(false); setPreview(null) }} className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-gray-950/70 text-white" aria-label="Exit shop mode"><Icons.X size={16} /></button>
+        {videoSrc ? <video ref={videoElementRef} src={videoSrc} poster={poster} aria-label={mediaAlt} playsInline muted loop className="h-full w-full object-contain" /> : <>
+          <img ref={imgRef} src={videoGif} alt={mediaAlt} className={`h-full w-full object-contain ${isPlaying ? "" : "hidden"}`} />
+          <canvas ref={canvasRef} className={`h-full w-full object-contain ${isPlaying ? "hidden" : ""}`} />
         </>}
-        <ShopChip label="Shop This Video" count={VIDEO_PRODUCTS.length} active={shopMode} video onClick={() => { if (isPlaying) { setIsPlaying(false); setShopMode(true) } else if (!shopMode) setShopMode(true); else { setSelected(null); setSimilarTarget(null); setSheetOpen(true) } }} />
-        <div className="absolute inset-x-0 bottom-0 z-20 flex items-center gap-3 bg-gradient-to-t from-black/70 to-transparent p-4 text-white">
+        {!isPlaying && !shopMode && <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-white"><div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur"><Icons.Play /></div></div>}
+        {shopMode && <>
+          <div className="pointer-events-none absolute inset-0 bg-black/20" />
+          {products.map((product) => <Hotspot key={product.id} product={product} isActive={preview?.id === product.id} onHover={(p) => { clearLeave(); setPreview(p) }} onLeave={scheduleLeave} onOpen={openItem} />)}
+          {preview && <ProductPreview product={preview} onEnter={clearLeave} onLeave={scheduleLeave} onOpen={() => openItem(preview)} onSimilar={() => { setSelected(preview); setSimilarTarget(preview); setSheetOpen(true); setPreview(null) }} />}
+          <button data-silvr-ui="true" type="button" onClick={(event) => { event.stopPropagation(); setShopMode(false); setPreview(null) }} className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-gray-950/70 text-white" aria-label="Exit shop mode"><Icons.X size={16} /></button>
+        </>}
+        {eligible && <ShopChip label={shopLabel} count={products.length} active={shopMode} video onClick={() => { if (!shopMode) setShopMode(true); else { setSelected(null); setSimilarTarget(null); setSheetOpen(true) } }} />}
+        <div data-silvr-ui="true" className="absolute inset-x-0 bottom-0 z-20 flex items-center gap-3 bg-gradient-to-t from-black/70 to-transparent p-4 text-white">
           <button type="button" onClick={(event) => { event.stopPropagation(); togglePlay() }} className="flex h-11 w-11 shrink-0 items-center justify-center" aria-label={isPlaying ? "Pause video" : "Play video"}>{isPlaying ? <Icons.Pause /> : <Icons.Play />}</button>
-          <div className="h-1 flex-1 rounded-full bg-white/30"><div className="h-full w-1/3 rounded-full bg-white" /></div><span className="text-xs">0:15 / 0:45</span>
+          <div className="h-1 flex-1 rounded-full bg-white/30"><div className="h-full rounded-full bg-white" style={{ width: `${Math.min(100, cue.timestampSeconds / (cue.durationSeconds || 45) * 100)}%` }} /></div><span className="text-xs" aria-label={cue.label}>{formatTime(cue.timestampSeconds)} / {formatTime(cue.durationSeconds || 45)}</span>
         </div>
       </div>
-      <BottomSheet isOpen={sheetOpen} onClose={closeSheet} products={VIDEO_PRODUCTS} selectedProduct={selected} onSelectProduct={setSelected} similarTarget={similarTarget} onShowSimilar={setSimilarTarget} onClearSimilar={() => setSimilarTarget(null)} cobranded={false} />
+      <BottomSheet isOpen={sheetOpen} onClose={closeSheet} products={products} selectedProduct={selected} onSelectProduct={setSelected} similarTarget={similarTarget} onShowSimilar={setSimilarTarget} onClearSimilar={() => setSimilarTarget(null)} cobranded={false} />
     </div>
   )
 }
@@ -337,6 +417,9 @@ const ShoppableVideo = () => {
 // --- APP ---
 
 export default function App() {
+  const pathname = window.location.pathname.replace(/\/$/, "")
+  if (pathname === "/gentlemans-gazette" || pathname.startsWith("/gentlemans-gazette/article/")) return <Suspense fallback={<div className="min-h-screen bg-white" />}><PublisherPage publisher="gazette" /></Suspense>
+  if (pathname === "/story-and-rain" || pathname.startsWith("/story-and-rain/article/")) return <Suspense fallback={<div className="min-h-screen bg-white" />}><PublisherPage publisher="storyRain" /></Suspense>
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-gray-200">
       {/* Editorial container — grows from mobile card to full desktop frame */}

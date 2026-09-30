@@ -27,17 +27,6 @@ h1, h2, h3, .font-serif {
   background: transparent;
 }
 
-/* Keep the shopping control inside its own image or video while scrolling. */
-.shop-chip-sticky {
-  position: sticky;
-  top: 96px;
-  width: max-content;
-  max-width: 100%;
-}
-@media (min-width: 1024px) {
-  .shop-chip-sticky { top: 150px; }
-}
-
 .product-preview {
   left: 12px;
   width: calc(100% - 24px);
