@@ -5,6 +5,7 @@ import friendsImg from "./imports/83e21e98daa1b315e24d2f416dc59049.jpg"
 
 import { FIRST_IMAGE_PRODUCTS, VIDEO_PRODUCTS, MULTIPERSON_PRODUCTS_1, MULTIPERSON_PRODUCTS_2, type Product, type StoreItem } from "./productCatalog"
 import { isEligibleEditorialMedia } from "./publisherCatalog"
+import { PublisherDemoIndex } from "./PublisherDemoIndex"
 
 const PublisherPage = lazy(() => import("./PublisherPages").then((module) => ({ default: module.PublisherPage })))
 
@@ -418,6 +419,7 @@ export const ShoppableVideo = ({ products = VIDEO_PRODUCTS, mediaId = "editorial
 
 export default function App() {
   const pathname = window.location.pathname.replace(/\/$/, "")
+  if (pathname === "") return <PublisherDemoIndex />
   if (pathname === "/gentlemans-gazette" || pathname.startsWith("/gentlemans-gazette/article/")) return <Suspense fallback={<div className="min-h-screen bg-white" />}><PublisherPage publisher="gazette" /></Suspense>
   if (pathname === "/story-and-rain" || pathname.startsWith("/story-and-rain/article/")) return <Suspense fallback={<div className="min-h-screen bg-white" />}><PublisherPage publisher="storyRain" /></Suspense>
   return (

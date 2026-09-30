@@ -26,7 +26,8 @@ Vite prints the local development URL. The publisher pages can be opened directl
 - `/gentlemans-gazette/article/timeless-tailoring` — complete tailoring article with shoppable media.
 - `/story-and-rain` — publisher homepage with a shoppable fashion editorial and new style features.
 - `/story-and-rain/article/well-suited` — complete fashion article with shoppable media.
-- `/` — the original Silvr interaction demo retained in the project.
+- `/` — a publisher demo selector linking to both experiences.
+- `/silvr-original-demo` — the original Silvr interaction demo retained in the project.
 
 Story + Rain's demo uses its “Well Suited” editorial image and does not reuse the original Silvr demo video. Both publisher experiences use the shared Silvr chip, hotspot, product sheet, similar-items, and retailer-redirection components.
 
