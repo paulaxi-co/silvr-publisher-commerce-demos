@@ -1,191 +1,266 @@
-import { useEffect } from "react"
-import { ShoppableImage, ShoppableVideo } from "./App"
+import { useEffect, useState } from "react"
+import { ShoppableImage } from "./App"
 import { PUBLISHER_MEDIA, productsForMedia } from "./publisherCatalog"
 
-const GAZETTE_ARTICLE = "/gentlemans-gazette/article/timeless-tailoring"
-const STORY_ARTICLE = "/story-and-rain/article/well-suited"
+type Publisher = "gazette" | "storyRain"
+type PublisherId = "gentlemans-gazette" | "story-and-rain"
+type Article = {
+  articleId?: string; publisherId?: PublisherId; slug: string; title: string; category: string; dek: string; date: string; readTime: string
+  hero: string; heroAlt: string; mediaId?: string; credits: string
+  sections: Array<{ heading?: string; paragraphs?: string[]; image?: string; mediaId?: string; alt?: string; caption?: string; quote?: string }>
+}
+type StoryCard = { publisherId?: PublisherId; articleId?: string; title: string; category: string; dek: string; image: string; alt: string; slug: string; id: string; externalHref?: string }
 
-/** The same media slot is used for features, cards, articles, and future galleries. */
+const cardMedia: Record<string, string> = {
+  "sport": "gg-pitti-streetstyle", "outerwear": "gg-overcoat", "morning": "gg-eveningwear", "sunglasses": "gg-sunglasses", "pitti": "gg-pitti-streetstyle",
+  "cover": "sr-hayes-card", "well-suited": "sr-lily-suit", "white": "sr-white-shirt", "screened": "sr-screened-arielle", "beauty": "sr-treat-body", "video": "sr-jenny-slate-video-still",
+}
+
+const ggImages = {
+  hero: "/assets/gg-editorial-banner.jpg",
+  fabrics: "https://www.gentlemansgazette.com/wp-content/uploads/2026/09/50-menswear-fabrics-banner-375x212.png",
+  overcoat: "https://www.gentlemansgazette.com/wp-content/uploads/2021/10/articlesandvideos-e1647985755465.jpg",
+  evening: "https://www.gentlemansgazette.com/wp-content/uploads/2021/10/morningwear-detail-e1647985794625.jpg",
+  sunglasses: "https://www.gentlemansgazette.com/wp-content/uploads/2022/02/Raphael-Sunglasses-1-588x588.jpg",
+  accessories: "https://www.gentlemansgazette.com/wp-content/uploads/2022/02/we-help-men-to-be-gentlemen-1.jpg",
+  pitti: "https://www.gentlemansgazette.com/wp-content/uploads/2022/02/Gentlemen-walking-at-Pitti-Uomo-1.jpg",
+  tray: "https://store.gentlemansgazette.com/cdn/shop/files/Antique_Mahogany_Blue_Suede_Leather_Travel_Valet_Tray_-_Fort_Belvedere_R5_0192.jpg?crop=center&height=1350&v=1789132391&width=900",
+}
+const srImages = {
+  lily: "/assets/sr-well-suited.jpg",
+  cover: "https://images.ctfassets.net/mk0gyd3cqdg6/YxiwoWWhlOtzXkbO9K5HL/a48280cd3f93b1e291967c3db6493359/_DSC0639_1_.jpg?w=1680&h=945&fit=fill&fm=jpg",
+  hayes: "https://images.ctfassets.net/mk0gyd3cqdg6/YxiwoWWhlOtzXkbO9K5HL/a48280cd3f93b1e291967c3db6493359/_DSC0639_1_.jpg?w=1200&h=2006&fit=fill&fm=jpg",
+  hayesPanorama: "https://images.ctfassets.net/mk0gyd3cqdg6/3MvzDP4qJHDyFFBMaKEeR6/35ceaf44a2110e7dca20b5eca126c433/_DSC0528_1_1_.jpg?w=1200&h=675&fit=fill&fm=jpg",
+  hayesSet: "https://images.ctfassets.net/mk0gyd3cqdg6/3w0iubOQtVkk4JgFW91Klv/f53f90b43cdf99ddc6c6379852058980/Untitled_Panorama-2copy.jpg?w=1200&h=675&fit=fill&fm=jpg",
+  hayesPortrait: "https://images.ctfassets.net/mk0gyd3cqdg6/1lz333Yc6bSj850gWc19Wp/c0fb24d6d6b8e623ad89c83506b03c0e/_DSC0025.jpg?w=1200&h=1800&fit=fill&fm=jpg",
+  whiteShirt: "https://images.ctfassets.net/mk0gyd3cqdg6/4Il02OscYts3XquZnlDWK7/cb96873f6f55bfd48dfeee706b69255c/BALANCIAGA_2026.avif",
+  shirtLauren: "https://images.ctfassets.net/mk0gyd3cqdg6/76z6yVRLNGaRIv9b5mSHSZ/fea7a1645907016a023883fd7b6bcc63/LAUREN_WHITE_SHIRT.png?w=600&h=600&fit=pad&fm=jpg&bg=white",
+  reading: "https://images.ctfassets.net/mk0gyd3cqdg6/1IL3X0hxHXiicp6Lt5QMiR/391b3f399a9f0586e876fca9761160f1/INSPIRED_HOME_BOOK_NOOK_2.jpg?w=1680&h=945&fit=fill&fm=jpg",
+  readingDetail: "https://images.ctfassets.net/mk0gyd3cqdg6/7i3vEfvPw9zmr0v1Xlxmry/5cb209387bbbf5b7b8d1840126529336/INSPIRED_HOME_BOOK_NOOK_3.jpg?w=1200&h=800&fit=fill&fm=jpg",
+  readingChair: "https://images.ctfassets.net/mk0gyd3cqdg6/6SUbHeUsezELGog2Cj7CFZ/21ddbb8aaa3422ed3dbc81aa74ac9d15/GREENROW_CLARA_WICKER_CHAIR.png?w=900&h=900&fit=pad&fm=jpg&bg=white",
+  screened: "https://images.ctfassets.net/mk0gyd3cqdg6/JU46b5dL3AI136sPXI8NT/951329ba306166f6da7e7543bc11bac9/ARIELLE_KEBBEL___STORY___RAIN_1.jpg?w=700&h=700&fit=fill&fm=jpg",
+  jewel: "https://images.ctfassets.net/mk0gyd3cqdg6/47QcZSlS3eg4fH5SPBNjPK/40d89f9ea6f735fcd1378f6aaec5c154/JEWEL__1_.png?w=700&h=700&fit=fill&fm=jpg",
+  recipe: "https://images.ctfassets.net/mk0gyd3cqdg6/3IAJXNr48erR3EITRV4Q57/e441181e45b6d763249df4554be896f6/IMG_2298.jpg?w=700&h=700&fit=fill&fm=jpg",
+  beauty: "https://images.ctfassets.net/mk0gyd3cqdg6/5EkeFNKKw72U9kHcuTaDW6/e27050908f6a5ec3ef5862ce36d9d3df/HANNAH_CORBIN___STORY___RAIN_12.1.25_5.jpg?w=700&h=700&fit=fill&fm=jpg",
+  jenny: "https://downloads.ctfassets.net/mk0gyd3cqdg6/4QnO6Yi7sLOd821d69ZO1v/00eaefa286fccba7d579b438421434ad/JENNY_SLATE___STORY___RAIN_FEAT_5.jpg?w=800&h=450&fit=fill&fm=jpg&fl=progressive",
+}
+
+const ggArticles: Article[] = [
+  {
+    slug: "timeless-tailoring", title: "A Custom Clothier’s Favorite Sport Coats", category: "Style · Tailoring", dek: "A practical guide to the jacket that sits between a suit and a more relaxed wardrobe.", date: "Demo editorial · October 2026", readTime: "7 min read", hero: ggImages.hero,
+    heroAlt: "Three Gentleman's Gazette contributors talking outdoors in classic tailoring; the center jacket is brown checked.", mediaId: "gg-group-portrait", credits: "Photography: Gentleman's Gazette home hero. Editorial image and reference: gentlemansgazette.com/custom-sport-coat-collection/.",
+    sections: [
+      { paragraphs: ["A sport coat earns its place by working across more than one kind of day. It brings shape to an outfit without asking for matching trousers, and it can move from a meeting to dinner with a few changes underneath.", "This demo guide is original editorial copy. The reference article and image inform the subject and visual context; no article text or quotations are reproduced."] },
+      { heading: "Start with the cloth", paragraphs: ["Texture is the easiest way to separate a sport coat from a business suit. A visible weave, a soft surface, or a restrained check gives the jacket its own point of view. Choose weight and texture for the season and the places you will actually wear it.", "A brown check can feel at home with grey, navy, or cream trousers. Keep the shirt quieter when the jacket already carries a strong pattern, and repeat one color elsewhere if you want the combination to feel connected."] },
+      { image: ggImages.pitti, mediaId: "gg-pitti-streetstyle", alt: "Men wearing tailored jackets at Pitti Uomo, photographed for Gentleman's Gazette.", caption: "A different set of tailored looks at Pitti Uomo. Source: Gentleman's Gazette." },
+      { heading: "Look at the shoulder and length", paragraphs: ["A clean shoulder gives the rest of the garment a natural line. The collar should sit against the shirt collar without a gap, and the front should close without pulling. These are useful checks whether the jacket is bespoke, made to measure, or ready to wear.", "Length changes the proportions. A jacket should balance the torso and trousers rather than simply follow a trend. When trying one on, sit, reach, and move in it; comfort is part of good fit."] },
+      { heading: "Build around what you own", paragraphs: ["The most useful jacket is one that already has partners in the closet. Start with trousers and shirts you reach for, then see whether the color and formality of a jacket make them easier to wear in more combinations.", "A sport coat does not need a complete new outfit around it. Let the fabric do the interesting work and keep shoes and accessories appropriate to the occasion."] },
+      { image: ggImages.overcoat, mediaId: "gg-overcoat", alt: "A gentleman in a navy suit and green windowpane overcoat, pictured in a Gentleman's Gazette wardrobe guide.", caption: "A reference to classic outerwear and proportion. Source: Gentleman's Gazette." },
+      { heading: "A useful final check", paragraphs: ["Before choosing, check the jacket in daylight, with the shirt and trousers you expect to wear. The right piece should feel considered without making the rest of the outfit feel like a costume.", "Explore the image above to see the closest catalog matches for the checked jacket and pale blue shirt. These are visual alternatives, not a claim that the photographed garments are the exact retailer products."] },
+    ],
+  },
+  {
+    slug: "fabric-and-texture", title: "A Field Guide to Suiting Fabrics", category: "Fabric · Wardrobe", dek: "Read the surface, weight, and weave before deciding what a garment is for.", date: "Demo editorial · October 2026", readTime: "6 min read", hero: ggImages.fabrics,
+    heroAlt: "A Gentleman's Gazette banner introducing a guide to menswear fabrics, with checked and tweed cloth swatches.", credits: "Image: Gentleman's Gazette 50 Fabrics guide banner. Reference: gentlemansgazette.com/archive/.",
+    sections: [
+      { paragraphs: ["Fabric changes how a garment looks, feels, and behaves over the course of a day. Learning to notice a weave is less about memorizing names than asking a few practical questions: how warm is it, how much texture does it show, and will it suit the setting?", "This concise demo guide pairs original explanatory copy with publisher-sourced imagery. It is not a reproduction of a Gentleman's Gazette article."] },
+      { heading: "Begin with weight and season", paragraphs: ["A lighter cloth usually feels easier in warm weather and drapes with less structure. A denser cloth can hold warmth and shape. The label can help, but handling the fabric and considering the climate are just as useful.", "Think beyond the season printed on a collection. A cool office, a long commute, and a mostly outdoor day call for different choices even in the same month."] },
+      { image: ggImages.evening, alt: "Gentleman's Gazette founder in a burgundy velvet evening jacket, seated against a green wall.", caption: "Eveningwear reference image. Source: Gentleman's Gazette." },
+      { heading: "Notice texture and pattern", paragraphs: ["Tweed, flannel, and open-weave cloth each create a different surface. Texture can make a simple outfit feel complete; a pattern adds another layer of visual information. If both are strong, keep the shirt and accessories calm.", "Checks are easier to wear when their scale suits the distance at which people see them. A small repeat reads quietly; a larger check carries more energy."] },
+      { image: ggImages.pitti, alt: "Men wearing considered tailored looks at Pitti Uomo, photographed for Gentleman's Gazette.", caption: "Street style at Pitti Uomo. Source: Gentleman's Gazette." },
+      { heading: "Match the cloth to real use", paragraphs: ["A jacket bought for weekly wear should be comfortable through sitting, walking, and changing temperatures. A special-occasion piece can be more expressive. Neither needs to be the most expensive cloth on the rail to be the right one.", "Use care instructions as part of the decision. Brushing, airing, and giving garments time to rest between wears can help preserve their shape and surface."] },
+      { image: ggImages.accessories, alt: "A still life of men's gloves, scarf, cigars, and other accessories from Gentleman's Gazette.", caption: "Accessories and materials in the Gentleman's Gazette editorial archive." },
+    ],
+  },
+  {
+    slug: "travel-and-accessories", title: "A More Considered Travel Kit", category: "Accessories · Lifestyle", dek: "Small, dependable pieces make the transition from home to hotel feel easier.", date: "Demo editorial · October 2026", readTime: "5 min read", hero: ggImages.tray,
+    heroAlt: "Fort Belvedere mahogany and blue suede leather travel valet tray on a marble surface.", credits: "Photography and product subject: Gentleman's Gazette / Fort Belvedere travel trays. Source: gentlemansgazette.com home page.",
+    sections: [
+      { paragraphs: ["A travel kit works best when it removes a few small decisions. Put everyday essentials in one place, choose pieces that can be used more than one way, and leave enough room to move without packing for every hypothetical occasion.", "This demo article is an original overview based on the editorial subject and product imagery shown by Gentleman's Gazette. The named source is credited; no product price or availability is represented here."] },
+      { heading: "Keep daily essentials together", paragraphs: ["A catchall tray gives a watch, keys, cuff links, or small accessories a home when you arrive. That simple habit makes it easier to get ready in the morning and check the room before leaving.", "Leather and suede develop character with use, but they also benefit from sensible care. Keep them dry, avoid overfilling, and let the surface rest after a trip."] },
+      { image: ggImages.sunglasses, alt: "Gentleman's Gazette founder Raphael wearing classic sunglasses outdoors.", caption: "A practical accessory reference. Source: Gentleman's Gazette." },
+      { heading: "Choose pieces that earn their space", paragraphs: ["A scarf can add warmth on a flight and work as an extra layer outdoors. A versatile belt and one pair of comfortable shoes may be more useful than several pieces chosen for a single outfit.", "When a special event is on the itinerary, make room for one complete formal combination. Packing each item together helps avoid last-minute gaps."] },
+      { image: ggImages.hero, alt: "Three men in tailored clothing sharing a conversation outdoors.", caption: "Classic wardrobe, worn in company. Source: Gentleman's Gazette." },
+      { heading: "Leave room for the journey", paragraphs: ["The aim is not to take a smaller version of the entire closet. It is to bring the things that support the actual itinerary, with enough flexibility for a change in weather or plans.", "The Fort Belvedere tray pictured above is the featured product subject on the publisher's home page. For current product information, visit the retailer directly."] },
+    ],
+  },
+]
+
+const srArticles: Article[] = [
+  {
+    slug: "hayes-warner", title: "Be Warned | Hayes Warner", category: "TV + Film · Cover story", dek: "Stepping into the Ryan Murphy stratosphere, The Shards’ Hayes Warner is determined to make it as a multihyphenate.", date: "Demo editorial · October 2026", readTime: "6 min read", hero: srImages.hayes,
+    heroAlt: "Portrait from Story + Rain's Be Warned cover editorial featuring Hayes Warner.", credits: "Photographs: Story + Rain, “Be Warned | Hayes Warner.” Source: storyandrain.com/article/hayes-warner-tv-film-music-cover-uncovered-be-warned.",
+    sections: [
+      { paragraphs: ["The cover story positions Hayes Warner at the intersection of screen work, music, and a wider creative life. The language of a multihyphenate is less a job title than a way of keeping more than one curiosity in motion.", "This original demo editorial draws on the published story's visible framing and subject. It includes no invented interview, quotation, or biographical detail beyond what the publisher identifies in its headline and deck."] },
+      { heading: "A career with more than one door", paragraphs: ["The phrase “breaking down doors” gives the story its forward motion. It suggests a career being built through choices and new rooms rather than a single prescribed route.", "Story + Rain frames Warner in relation to The Shards and the creative orbit associated with Ryan Murphy. For a young performer, a role can introduce an audience to a new face; what happens next depends on the range of work that follows."] },
+      { image: srImages.hayesPanorama, alt: "Wide editorial photograph from Story + Rain's Hayes Warner cover feature.", caption: "A second frame from the Be Warned cover story. Source: Story + Rain." },
+      { heading: "The work behind a point of view", paragraphs: ["A career that moves between disciplines asks for a distinct point of view. Screen acting, music, and other creative work each have their own process, yet an audience often follows the sensibility linking them.", "The publisher's feature brings those threads together in a portrait-led format. This demo keeps the pacing editorial and leaves direct quotations and interview details to the source article."] },
+      { image: srImages.hayesSet, alt: "A behind-the-scenes panorama from Story + Rain's Hayes Warner cover shoot.", caption: "Cover-shoot image from the source feature." },
+      { heading: "Keep following the story", paragraphs: ["An emerging creative career is not a finished narrative. The compelling question is what the next choice makes possible, and how each project changes the audience's picture of the person behind it.", "Read the complete cover story at Story + Rain for the publisher's original reporting, credited contributors, and any further project details."] },
+      { image: srImages.hayesPortrait, alt: "Portrait frame from the Hayes Warner cover photography published by Story + Rain.", caption: "Portrait photography from Story + Rain's Be Warned feature." },
+    ],
+  },
+  {
+    slug: "well-suited", title: "Well Suited", category: "Fashion · Cover story", dek: "Lily Rabe is just the right fit in a seasonless suit.", date: "Demo editorial · October 2026", readTime: "5 min read", hero: srImages.lily,
+    heroAlt: "Lily Rabe in an oversized grey three-piece suit, photographed for Story + Rain's Well Suited editorial.", mediaId: "sr-lily-suit", credits: "Photograph: Story + Rain, “Well Suited” editorial. Suit attribution in the publisher's published story: The Frankie Shop.",
+    sections: [
+      { paragraphs: ["A seasonless suit leaves room for personality. A longer jacket gives the silhouette ease; a tailored waistcoat brings a closer layer underneath. Together, they create a look that feels composed without feeling fixed to one occasion.", "This original demo text responds to Story + Rain's published Well Suited story. It does not reproduce the article or invent an interview or quotation."] },
+      { heading: "Ease in the silhouette", paragraphs: ["The jacket's generous shape gives the outfit its relaxed line. A defined shoulder and long lapel keep the volume deliberate, while the waistcoat introduces structure below.", "Worn together, the grey layers form a continuous column. Separated, each one can change the mood of a simple base: the blazer adds polish, while the vest carries the tailored detail on its own."] },
+      { image: srImages.cover, alt: "A Story + Rain cover portrait in a vivid red lace look against a dark blue setting.", caption: "Cover image from the publisher's current home page. Source: Story + Rain." },
+      { heading: "One palette, several moods", paragraphs: ["Monochrome dressing does not need to feel uniform. Differences in texture, finish, and proportion add depth even when colors stay close. Keep accessories edited and let the layers do the work.", "A contrasting shoe or a sculptural piece of jewelry can shift the look toward evening without changing its foundation."] },
+      { heading: "Wear each layer your own way", paragraphs: ["The jacket and trousers can stand as a complete look; the waistcoat can work with a shirt or fine knit. Splitting up a suit also makes each piece easier to bring into an existing wardrobe.", "Proportion is the detail to watch. A longer jacket pairs well with a clean base, while a waistcoat looks intentional when it meets the waistband rather than interrupting it."] },
+      { heading: "The finishing touches", paragraphs: ["Accessories can stay minimal when tailoring already has presence. A delicate earring or ring can pick up the look's polish; a textured bag or shoe creates a stronger contrast.", "Explore the photograph for closest available blazer and waistcoat matches. The pieces in the Silvr panel are alternatives chosen for visual similarity, not confirmed exact matches."] },
+    ],
+  },
+  {
+    slug: "the-right-white-shirt", title: "The Right White Shirt", category: "Fashion · Shopping", dek: "Stock up for summer and wear it all year: one familiar staple, considered in a few fresh ways.", date: "Demo editorial · October 2026", readTime: "4 min read", hero: srImages.whiteShirt,
+    heroAlt: "Fashion editorial image from Story + Rain's The Right White Shirt shopping story.", credits: "Images: Story + Rain, “The Right White Shirt” article and its publisher-provided product cards. Retailer availability and pricing are not represented.",
+    sections: [
+      { paragraphs: ["A white shirt is a starting point, not a uniform. Fabric, collar, and proportion change the impression before accessories enter the picture. A crisp cotton poplin feels different from a soft, relaxed linen or an oversized silhouette.", "This demo curation follows the subject and product imagery of Story + Rain's published story. Check each publisher or retailer listing for current product details."] },
+      { heading: "Find the shape that feels like you", paragraphs: ["A clean, close fit layers easily under tailoring. A fuller shirt brings movement and can become the focal point with simple trousers. The useful choice is the one that feels comfortable buttoned, open, and tucked or untucked.", "Pay attention to shoulder placement and sleeve volume. Small proportion changes can make the same white shirt read classic, relaxed, or more directional."] },
+      { image: srImages.shirtLauren, alt: "Product photograph from Story + Rain's white shirt shopping edit, showing a white shirt selection.", caption: "A publisher-selected white-shirt product image. Source: Story + Rain." },
+      { heading: "Let the material set the tone", paragraphs: ["A smooth finish can feel polished under a jacket. A softer or more textured fabric pairs naturally with denim and knitwear. For warm weather, the weave and weight matter as much as the color.", "The rest of the outfit can stay simple. A shirt with a distinctive collar or generous cuff usually needs little more than a considered shoe and one accessory."] },
+      { image: srImages.whiteShirt, alt: "Story + Rain's white shirt editorial lead photograph.", caption: "Lead image for the publisher's white shirt shopping story." },
+      { heading: "Build a small rotation", paragraphs: ["One reliable shirt can be a favorite, but a small rotation helps keep it ready for different parts of the week. Choose variation with a reason: one structured, one soft, one relaxed.", "The article's product images are a publisher curation. They are not connected to the demo's Silvr matching dataset, so they remain an editorial gallery rather than a purchase overlay."] },
+    ],
+  },
+  {
+    slug: "reading-nooks", title: "Reading Nooks to Revel In", category: "Culture + Living · Décor", dek: "A quiet corner can change the way a room invites you to slow down.", date: "Demo editorial · October 2026", readTime: "5 min read", hero: srImages.reading,
+    heroAlt: "A reading nook photographed for Story + Rain's Inspired Home feature, with books and considered home details.", credits: "Photographs: Story + Rain, “Reading Nooks to Revel In.” Original demo copy; no expert quote or interview attributed.",
+    sections: [
+      { paragraphs: ["A good reading corner is less about square footage than a small collection of thoughtful choices. A comfortable seat, a steady light, and a nearby place for a book can make an unused corner feel intentional.", "This demo story uses the publisher's visual subject as a starting point and adds original editorial copy. It does not quote or attribute comments to the source article's contributors."] },
+      { heading: "Begin with how you want to use it", paragraphs: ["A spot for a few pages before bed has different needs from a long weekend reading chair. Think about light at the hour you will use it, whether you need a side table, and how much room you want around the seat.", "A floor lamp can free up a small table. A focused reading light keeps the rest of the room calm, while a warmer ambient source makes the corner feel connected to the space around it."] },
+      { image: srImages.readingDetail, alt: "A second interior photograph from Story + Rain's Reading Nooks feature.", caption: "A second space from the publisher's Inspired Home feature." },
+      { heading: "Make the details personal", paragraphs: ["A favorite book, a small stack of magazines, and a textile with a bit of color can give the area its own character. Keep only what you use close by so the corner feels inviting rather than arranged for a photograph.", "Plants and artwork can soften the edges, but the seat should remain easy to reach and comfortable enough to stay in."] },
+      { image: srImages.readingChair, alt: "Wicker reading chair selected for Story + Rain's Reading Nooks shopping edit.", caption: "A chair from the feature's curated reading-nook edit. Source: Story + Rain." },
+      { heading: "A room that makes space", paragraphs: ["The corner does not need to match the rest of the room exactly. Repeating one material or color is enough to make it feel at home, while a contrasting chair can give it a clear identity.", "Treat the layout as an invitation: keep a path open, put the light where it helps, and let the books you want to read be visible."] },
+    ],
+  },
+]
+
+const ggCards: StoryCard[] = [
+  { id: "sport", title: "A Custom Clothier’s Favorite Sport Coats", category: "Clothing · Tailoring", dek: "A look at the texture, fit, and versatility behind a personal favorite.", image: ggImages.pitti, alt: "Gentlemen walking at Pitti Uomo in considered tailoring, from Gentleman's Gazette.", slug: "timeless-tailoring" },
+  { id: "fabric", title: "50 Fabrics Every Man Should Be Able to Identify", category: "Fabric", dek: "A visual introduction to the weaves and textures behind classic menswear.", image: ggImages.fabrics, alt: "Swatches of checked and textured suiting fabric from Gentleman's Gazette.", slug: "fabric-and-texture" },
+  { id: "outerwear", title: "The Green Windowpane Overcoat", category: "Style guide", dek: "Pattern, layers, and proportion in a classic outerwear reference.", image: ggImages.overcoat, alt: "Gentleman in a navy suit under a green checked overcoat.", slug: "fabric-and-texture" },
+  { id: "morning", title: "A Study in Eveningwear", category: "Guides", dek: "Velvet, color, and the formality of a well-chosen jacket.", image: ggImages.evening, alt: "Man wearing a burgundy velvet dinner jacket in front of a green wall.", slug: "fabric-and-texture" },
+  { id: "accessories", title: "Small Accessories, Lasting Use", category: "Accessories", dek: "The useful finishing pieces that make a wardrobe feel personal.", image: ggImages.accessories, alt: "A still life of gentlemanly accessories including gloves and a scarf.", slug: "travel-and-accessories" },
+  { id: "sunglasses", title: "When All Eyes Are On You", category: "Accessories", dek: "A practical note on the finishing touch that frames a face.", image: ggImages.sunglasses, alt: "Gentleman's Gazette founder Raphael wearing sunglasses.", slug: "travel-and-accessories" },
+  { id: "pitti", title: "A Modern Take on Classic Style", category: "Community", dek: "Individual wardrobes and the shared language of tailoring.", image: ggImages.pitti, alt: "Gentlemen walking at Pitti Uomo in considered tailoring.", slug: "timeless-tailoring" },
+  { id: "tray", title: "Travel in Style with Fort Belvedere", category: "Fort Belvedere", dek: "A leather valet tray designed to keep small essentials close.", image: ggImages.tray, alt: "Mahogany and blue suede leather travel valet tray on marble.", slug: "travel-and-accessories" },
+]
+const srCards: StoryCard[] = [
+  { id: "cover", title: "Be Warned | Hayes Warner", category: "TV + Film · Cover", dek: "The Shards actor on stepping into the Ryan Murphy stratosphere and making room for a multihyphenate career.", image: srImages.cover, alt: "Story + Rain cover portrait in a red lace look.", slug: "hayes-warner" },
+  { id: "well-suited", title: "Well Suited", category: "Fashion · The story", dek: "Lily Rabe is just the right fit in a seasonless suit.", image: srImages.lily, alt: "Lily Rabe in an oversized grey three-piece suit.", slug: "well-suited" },
+  { id: "white", title: "The Right White Shirt", category: "Fashion · Shopping", dek: "Stock up for summer and wear it all year.", image: srImages.whiteShirt, alt: "Story + Rain white shirt shopping editorial.", slug: "the-right-white-shirt" },
+  { id: "reading", title: "Reading Nooks to Revel In", category: "Culture + Living", dek: "Small ways to make a home corner feel like a pause in the day.", image: srImages.reading, alt: "Story + Rain home and reading editorial art.", slug: "reading-nooks" },
+  { id: "screened", title: "Screened | Arielle Kebbel", category: "Screened · TV + Film", dek: "A portrait-led look at the actor's work on Marshals.", image: srImages.screened, alt: "Screened portrait of Arielle Kebbel for Story + Rain.", slug: "", externalHref: "https://storyandrain.com/article/tv-film-screened-arielle-kebbel" },
+  { id: "jewel", title: "Jewel | Episode 176", category: "The Podcast", dek: "A cover star, a creative life, and the ideas around the conversation.", image: srImages.jewel, alt: "Story + Rain podcast cover artwork featuring Jewel.", slug: "", externalHref: "https://storyandrain.com/article/story-and-rain-talks-jewel-episode-176" },
+  { id: "recipe", title: "Vegetarian Summer Harvest Lasagna", category: "Recipe Box", dek: "A summer table feature from Story + Rain's recipe archive.", image: srImages.recipe, alt: "Vegetarian summer harvest lasagna from Story + Rain.", slug: "", externalHref: "https://storyandrain.com/article/recipe-box-vegetarian-summer-harvest-lasagna" },
+  { id: "beauty", title: "Treat Your Body", category: "Beauty + Wellness", dek: "A rotating edit of food, movement, and care for the week.", image: srImages.beauty, alt: "Hannah Corbin in a Story + Rain Treat Your Body feature.", slug: "", externalHref: "https://storyandrain.com/article/treat-your-body-by-hannah-corbin-week-of-december-1-2025" },
+  { id: "video", title: "Inside a Technicolor Townhouse", category: "Video", dek: "A behind-the-scenes look with Jenny Slate, from the publisher's video archive.", image: srImages.jenny, alt: "Story + Rain behind-the-scenes video feature with Jenny Slate.", slug: "", externalHref: "https://storyandrain.com/article/jenny-slate-video-behind-scenes-bts-april-2025-cover" },
+]
+const allArticles: Record<Publisher, Article[]> = {
+  gazette: ggArticles.map(article => ({ ...article, articleId: article.slug, publisherId: "gentlemans-gazette" })),
+  storyRain: srArticles.map(article => ({ ...article, articleId: article.slug, publisherId: "story-and-rain" })),
+}
+const allCards: Record<Publisher, StoryCard[]> = {
+  gazette: ggCards.map(card => ({ ...card, publisherId: "gentlemans-gazette", articleId: card.slug || undefined })),
+  storyRain: srCards.map(card => ({ ...card, publisherId: "story-and-rain", articleId: card.slug || undefined })),
+}
+const homePath: Record<Publisher, string> = { gazette: "/gentlemans-gazette", storyRain: "/story-and-rain" }
+
 function PublisherMedia({ mediaId, className = "" }: { mediaId: string; className?: string }) {
   const media = PUBLISHER_MEDIA[mediaId]
   if (!media) return null
-  if (!media.editorial || !media.fashionReadable || !media.hotspotIds.length) return <img className={className} src={media.src} alt={media.alt} />
-  if (media.type === "image") return (
-    <div className={className}>
-      <ShoppableImage imageSrc={media.src} products={productsForMedia(media.id)} nativeWidth={1600} imageAlt={media.alt} mediaId={media.id} shopLabel="Shop this image" frameClassName={media.frameClassName} chipCorner={media.chipCorner} />
-    </div>
-  )
-  return <div className={className}><ShoppableVideo products={productsForMedia(media.id)} mediaId={media.id} mediaAlt={media.alt} videoSrc={media.src} shopLabel="Shop this video" /></div>
+  if (!media.editorial || !media.fashionReadable || !media.hotspotIds.length) return <img className={className} src={media.src} alt={media.alt} referrerPolicy="no-referrer" />
+  return <div className={className}><ShoppableImage imageSrc={media.src} products={productsForMedia(media.id)} nativeWidth={1600} imageAlt={media.alt} mediaId={media.id} shopLabel="Shop this image" frameClassName={media.frameClassName} chipCorner={media.chipCorner} /></div>
 }
 
-function GazetteHeader() {
-  return <>
-    <div className="border-b border-[#dedbd3] bg-[#252622] px-4 py-2 text-center text-[10px] uppercase tracking-[.22em] text-white">The art of living well · Est. 2010</div>
-    <header className="gazette-header mx-auto max-w-[1440px] px-5 md:px-10">
-      <div className="flex min-h-[88px] items-center justify-between border-b border-[#dedbd3]">
-        <a className="publisher-menu-button" href="#gazette-stories" aria-label="Browse stories"><span></span><span></span><span></span></a>
-        <a href="/gentlemans-gazette" className="gazette-masthead" aria-label="Gentleman's Gazette home">GENTLEMAN'S <span>GAZETTE</span></a>
-        <a className="gazette-shop-link" href="https://shop.gentlemansgazette.com/" target="_blank" rel="noreferrer">Shop <span>↗</span></a>
-      </div>
-      <nav className="gazette-nav hidden items-center justify-center gap-9 py-4 md:flex" aria-label="Main navigation">
-        {["Style", "Grooming", "Lifestyle", "Watches", "Fort Belvedere", "Videos"].map(item => <a key={item} href="#gazette-stories">{item}</a>)}
-      </nav>
-    </header>
-  </>
+function Card({ item, publisher, shoppable = false }: { item: StoryCard; publisher: Publisher; shoppable?: boolean }) {
+  const path = item.externalHref ?? `${homePath[publisher]}/article/${item.slug}`
+  const mediaId = cardMedia[item.id]
+  const externalProps = item.externalHref ? { target: "_blank", rel: "noreferrer", "aria-label": `${item.title} — opens on ${publisher === "gazette" ? "Gentleman's Gazette" : "Story + Rain"}` } : {}
+  return <article className={`${publisher === "gazette" ? "gg-card" : "sr-card"}`}>
+    <div className="publisher-card-image">
+      {mediaId && ((publisher === "gazette" && item.id !== "cover") || publisher === "storyRain") ? <PublisherMedia mediaId={mediaId} /> : shoppable && item.id === "sport" && publisher === "gazette" ? <PublisherMedia mediaId="gg-group-portrait" /> : <img src={item.image} alt={item.alt} loading="lazy" referrerPolicy="no-referrer" />}
+    </div>
+    <div className="publisher-card-copy"><p className="publisher-card-kicker">{item.category}</p><h3><a href={path} {...externalProps}>{item.title}</a></h3><p>{item.dek}</p><a className="publisher-read-link" href={path} {...externalProps}>{item.externalHref ? `Read on ${publisher === "gazette" ? "the Gazette" : "Story + Rain"}` : "Read the story"} <span aria-hidden="true">↗</span></a></div>
+  </article>
 }
+
+function GazetteHeader({ compact = false }: { compact?: boolean }) {
+  const [searchOpen, setSearchOpen] = useState(false)
+  return <><div className="gazette-ribbon">THE ART OF LIVING WELL <span>·</span> EST. 2010</div><header className="gg-header">
+    <div className="gg-masthead-row"><a href="/gentlemans-gazette" className="gazette-masthead" aria-label="Gentleman's Gazette home">GENTLEMAN'S <span>GAZETTE</span></a><div className="gg-utility"><a href="https://shop.gentlemansgazette.com/" target="_blank" rel="noreferrer">SHOP ↗</a><button type="button" aria-expanded={searchOpen} onClick={() => setSearchOpen(value => !value)}>Search⌕</button></div></div>
+    {searchOpen && <form className="publisher-search" action="/gentlemans-gazette/search"><label><span className="sr-only">Search Gentleman's Gazette</span><input name="q" placeholder="Search articles and guides" autoFocus /></label><button type="submit">Search ↗</button></form>}
+    <nav className="gazette-nav" aria-label="Gentleman's Gazette navigation"><a href="/gentlemans-gazette">Home</a><a href="/gentlemans-gazette/archive">Articles &amp; videos</a><a href="/gentlemans-gazette/archive?category=tailoring">Tailoring</a><a href="/gentlemans-gazette/archive?category=fabric">Fabric</a><a href="/gentlemans-gazette/archive?category=accessories">Accessories</a><a href="/gentlemans-gazette#guides">Guides</a><a href="/gentlemans-gazette#fort-belvedere">Fort Belvedere</a></nav>
+    {!compact && <div className="gg-mobile-nav"><a href="/gentlemans-gazette/archive">Articles &amp; videos</a><a href="/gentlemans-gazette/archive?category=tailoring">Tailoring</a><a href="/gentlemans-gazette/archive?category=accessories">Accessories</a></div>}
+  </header></>
+}
+function GazetteFooter() { return <footer className="gg-footer"><div><a className="gazette-masthead" href="/gentlemans-gazette">GENTLEMAN'S <span>GAZETTE</span></a><p>Historically backed articles, videos, and accessories for classic style.</p></div><div><strong>Explore</strong><a href="/gentlemans-gazette/archive">Articles &amp; videos</a><a href="/gentlemans-gazette/archive#guides">Style guides</a><a href="https://shop.gentlemansgazette.com/" target="_blank" rel="noreferrer">Shop Fort Belvedere ↗</a></div><div><strong>More</strong><a href="/">Publisher demos</a><a href="https://www.gentlemansgazette.com/about/" target="_blank" rel="noreferrer">About Gentleman's Gazette ↗</a><span>© Gentleman's Gazette · Demo experience</span></div></footer> }
+
 function GazetteHome() {
-  return <div className="publisher-page gazette-page min-h-screen bg-[#f7f5f0] text-[#171716]">
-    <GazetteHeader />
-    <main className="mx-auto max-w-[1280px] px-5 pb-24 md:px-10">
-      <div className="gazette-kicker mt-9">Classic style · For the modern gentleman</div>
-      <div className="gazette-title-row mb-7 mt-3 flex flex-col justify-between gap-3 md:flex-row md:items-end">
-        <h1 className="publisher-editorial-serif max-w-3xl text-4xl leading-[1.06] md:text-6xl">Dress well.<br />Live well.</h1>
-        <p className="max-w-xs text-sm leading-6 text-[#605f59]">The style, craft, and details behind a considered wardrobe.</p>
-      </div>
-      <section className="gazette-feature" aria-labelledby="gazette-feature-title">
-        <PublisherMedia mediaId="gg-group-portrait" />
-        <div className="gazette-caption">Classic menswear, considered from jacket to collar. <span>Image: Gentleman's Gazette</span></div>
-        <div className="gazette-home-feature-copy">
-          <div><p className="gazette-kicker">Featured story · Style guide</p><h2 id="gazette-feature-title" className="publisher-editorial-serif mt-3 text-3xl leading-tight md:text-5xl">The art of timeless tailoring</h2></div>
-          <a className="gazette-story-link" href={GAZETTE_ARTICLE}>Read the story&nbsp; ↗</a>
-        </div>
-      </section>
-      <section id="gazette-stories" className="mt-14 border-t border-[#dedbd3] pt-5">
-        <div className="flex items-center justify-between"><h2 className="publisher-editorial-serif text-2xl md:text-3xl">A considered wardrobe</h2><span className="gazette-kicker">The details matter</span></div>
-        <div className="gazette-story-grid mt-6">
-          <article className="gazette-story-card gazette-style-note">
-            <p className="gazette-kicker">Wardrobe notes · The long view</p>
-            <h3 className="publisher-editorial-serif mt-4 text-3xl md:text-4xl">Start with the pieces you reach for</h3>
-            <p className="mt-4 max-w-xl text-sm leading-7 text-[#605f59]">A useful wardrobe is built around real days. Choose dependable layers, keep their proportions in balance, and let one considered detail bring the outfit together.</p>
-            <a className="gazette-story-link mt-6 inline-block" href={`${GAZETTE_ARTICLE}#whole-silhouette`}>Read the wardrobe notes&nbsp; ↗</a>
-          </article>
-          <div className="gazette-text-stories">
-            <p className="gazette-kicker">Notes on getting dressed</p>
-            <a href={`${GAZETTE_ARTICLE}#cloth`}>Choose cloth for real wear <span>Care &amp; craft&nbsp; ↗</span></a>
-            <a href={`${GAZETTE_ARTICLE}#pattern`}>Let one pattern lead <span>Color &amp; texture&nbsp; ↗</span></a>
-            <a href={`${GAZETTE_ARTICLE}#finish`}>Finish with intention <span>Personal style&nbsp; ↗</span></a>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
+  return <div className="publisher-page gazette-page"><GazetteHeader /><main className="gg-main">
+    <section className="gg-hero"><div className="gg-hero-copy"><p className="gg-eyebrow">Classic style · For the modern gentleman</p><h1>Dress &amp; feel like the gentleman you are.</h1><p className="gg-dek">Historically backed articles, videos, and accessories to make classic style feel achievable—with confidence.</p><div className="gg-hero-links"><a href="/gentlemans-gazette/archive">Explore articles &amp; video ↗</a><a href="/gentlemans-gazette/archive#guides">Browse the guides ↓</a></div></div><div className="gg-hero-image"><PublisherMedia mediaId="gg-group-portrait" /><p>Style is a practice. Start with the details.</p></div></section>
+    <section id="latest" className="gg-section"><div className="gg-section-heading"><div><p className="gg-eyebrow">FROM THE DESK OF GG</p><h2>Here’s what’s new</h2></div><a href="/gentlemans-gazette/archive">See the archive ↗</a></div><div className="gg-card-grid">{ggCards.slice(0, 4).map(card => <Card key={card.id} item={card} publisher="gazette" shoppable={card.id === "sport"} />)}</div></section>
+    <section id="guides" className="gg-guides"><div className="gg-guide-intro"><p className="gg-eyebrow">THE ESSENTIALS</p><h2>Learn the craft.<br /><em>Make it your own.</em></h2><p>Searchable expertise for the pieces, fabrics, and decisions that make a wardrobe yours.</p><a href="/gentlemans-gazette/archive">Explore every guide ↗</a></div><div className="gg-guide-list"><a href="/gentlemans-gazette/article/timeless-tailoring"><span>01</span><div><strong>Tailoring</strong><small>Fit, cut, and the sport coat</small></div><b>↗</b></a><a href="/gentlemans-gazette/article/fabric-and-texture"><span>02</span><div><strong>Fabrics</strong><small>Weave, weight, and texture</small></div><b>↗</b></a><a href="/gentlemans-gazette/article/travel-and-accessories"><span>03</span><div><strong>Shoes &amp; accessories</strong><small>The finishing details</small></div><b>↗</b></a><a href="/gentlemans-gazette/archive?category=guides"><span>04</span><div><strong>Black tie &amp; occasion</strong><small>Guidance for formal dress</small></div><b>↗</b></a></div></section>
+    <section id="fort-belvedere" className="gg-fort"><img src={ggImages.tray} alt="Fort Belvedere leather travel valet tray on a marble surface" loading="lazy" /><div><p className="gg-eyebrow">THE LATEST FROM FORT BELVEDERE</p><h2>Travel in style.</h2><p>Suede and smooth leather meet in a valet tray designed to keep daily essentials close, wherever the day takes you.</p><a href="https://store.gentlemansgazette.com/collections/travel-trays" target="_blank" rel="noreferrer">Explore Fort Belvedere ↗</a><small>Publisher product feature · check the store for current details</small></div></section>
+    <section className="gg-section"><div className="gg-section-heading"><div><p className="gg-eyebrow">A FEW MORE GOOD READS</p><h2>From fabrics to finishing touches</h2></div><a href="/gentlemans-gazette/archive">All articles &amp; videos ↗</a></div><div className="gg-card-grid">{ggCards.slice(4).map(card => <Card key={card.id} item={card} publisher="gazette" />)}</div></section>
+  </main><GazetteFooter /></div>
 }
-function GazetteArticle() {
-  return <div className="publisher-page gazette-page min-h-screen bg-[#f7f5f0] text-[#171716]">
-    <GazetteHeader />
-    <main className="mx-auto max-w-[1280px] px-5 pb-24 md:px-10">
-      <p className="gazette-kicker mt-9"><a href="/gentlemans-gazette">Home</a> &nbsp;/&nbsp; Style guide</p>
-      <div className="gazette-title-row mb-6 mt-3 flex flex-col justify-between gap-3 md:flex-row md:items-end"><h1 className="publisher-editorial-serif max-w-3xl text-4xl leading-[1.06] md:text-6xl">The art of timeless tailoring</h1><p className="max-w-xs text-sm leading-6 text-[#605f59]">The elements of a wardrobe that always feels considered.</p></div>
-      <div className="mb-4 flex items-center justify-between border-y border-[#dedbd3] py-3 text-[10px] uppercase tracking-[.18em] text-[#605f59]"><span>Style guide</span><span>6 min read</span></div>
-      <section className="gazette-feature"><PublisherMedia mediaId="gg-group-portrait" /><div className="gazette-caption">A close study of proportion, texture, and the details that make a suit your own. <span>Image: Gentleman's Gazette</span></div></section>
-      <article className="gazette-reading mx-auto mt-12 max-w-[710px]">
-        <p className="publisher-editorial-serif gazette-deck">A confident fit and thoughtful finishing do more than any passing trend.</p>
-        <div className="gazette-body-copy">
-          <p>Classic tailoring begins with balance. A structured jacket sets the line of the shoulders, while a clean shirt collar gives the look a quiet foundation.</p>
-          <h2 className="publisher-editorial-serif">The foundation of a good fit</h2>
-          <p>Look to the shoulder seam, sleeve length, and the space through the chest. The checked double-breasted jacket in this photograph draws its character from the close pattern and broad lapels; the pale blue shirt lightens the whole ensemble.</p>
-          <p>Explore the photograph to shop visually similar jackets and shirts. Each piece can be opened separately, with more options in the shopping sheet.</p>
-          <h2 className="publisher-editorial-serif">Start with the shoulder</h2>
-          <p>A jacket reads as well fitted when its shoulder line follows the wearer instead of extending past it or pulling inward. The collar should sit close to the shirt collar, and the lapels should lie flat when the jacket is buttoned. These quiet checks give the garment its shape before color or accessories enter the picture.</p>
-          <p>Length matters too. A balanced jacket covers the seat and leaves enough room through the chest to move comfortably. Sleeves should show a small, consistent line of shirt cuff. Small adjustments at the tailor can often improve the impression more than changing the whole outfit.</p>
-          <h2 id="pattern" className="publisher-editorial-serif">Let pattern do one job</h2>
-          <p>A checked jacket already brings texture and visual rhythm. Pairing it with a plain shirt keeps the pattern legible and gives the eye a place to rest. Here, the light blue shirt provides that contrast without competing with the brown check.</p>
-          <p>Scale is useful when choosing a check: a tighter repeat tends to read quietly from a distance, while a larger one feels more expressive. The rest of the outfit can stay restrained, with a solid trouser and a simple leather shoe carrying the same level of formality.</p>
-          <h2 id="finish" className="publisher-editorial-serif">Finish with intention</h2>
-          <p>A pocket square, tie, or boutonniere can add color, but each detail works best when it relates to the rest of the palette instead of matching every element exactly. Choose one accent, then let the cloth and cut remain the focus.</p>
-          <p>That approach makes tailoring easier to wear across occasions. Keep the jacket structured for a more formal setting, or wear it with an open collar when the day calls for something relaxed. The useful wardrobe is the one whose pieces can shift tone without losing their character.</p>
-          <h2 id="whole-silhouette" className="publisher-editorial-serif">Consider the whole silhouette</h2>
-          <p>The jacket is only one part of the line. Trousers that sit cleanly at the waist and fall without pulling keep the upper half in proportion. A moderate break at the shoe gives a traditional finish; a shorter hem can feel sharper, provided it still works with the formality of the jacket.</p>
-          <p>Footwear and small accessories set the final tone. Polished leather and a restrained tie make the outfit feel more formal, while a softer shoe and an open collar ease it back. Repeating one color from the jacket or shirt in a small detail can bring the combination together without making it look planned piece by piece.</p>
-          <h2 id="cloth" className="publisher-editorial-serif">Choose cloth for real wear</h2>
-          <p>When selecting a jacket, consider how often and where it will be worn. A tightly woven cloth can hold a crisp line through a busy day; a lighter, more textured fabric may feel at home in warmer weather or a relaxed setting. The check in this portrait is easy to notice, so the rest of the outfit benefits from simple, dependable fabrics.</p>
-          <p>Give tailored pieces room to rest between wears and brush them gently after use. Airing a jacket before returning it to the wardrobe helps preserve its shape and reduces the need for frequent cleaning. Small habits protect the structure that made the garment worth choosing.</p>
-        </div>
-        <a className="gazette-story-link mt-8 inline-block" href="/gentlemans-gazette">← Back to the Gazette</a>
-      </article>
-    </main>
-  </div>
+
+function GazetteArchive({ mode = "archive" }: { mode?: "archive" | "search" }) {
+  const params = new URLSearchParams(window.location.search), query = params.get("q")?.toLowerCase().trim() ?? "", category = params.get("category")?.toLowerCase() ?? ""
+  const cards = ggCards.filter(card => (!query || `${card.title} ${card.category} ${card.dek}`.toLowerCase().includes(query)) && (!category || `${card.category} ${card.title}`.toLowerCase().includes(category)))
+  return <div className="publisher-page gazette-page"><GazetteHeader /><main className="gg-main gg-archive"><p className="gg-eyebrow">{mode === "search" ? "SEARCH THE GAZETTE" : "THE READING ROOM"}</p><h1>{mode === "search" ? `Results for “${params.get("q") ?? ""}”` : "Articles & videos"}</h1><p className="gg-dek">Knowledge to make a classic wardrobe more personal, useful, and easy to navigate.</p>{mode === "archive" && <div className="gg-archive-tabs"><a href="#latest">Latest</a><a href="#popular">Most popular</a><a href="#all-articles">All articles &amp; videos</a></div>}<section id="latest"><div className="gg-section-heading"><h2>{mode === "search" ? "Search results" : "Latest"}</h2><span>{Math.min(cards.length, 4)} stories</span></div>{cards.length ? <div className="gg-card-grid">{(mode === "search" ? cards : cards.slice(0, 4)).map(card => <Card key={card.id} item={card} publisher="gazette" shoppable={card.id === "sport"} />)}</div> : <p className="publisher-empty">No stories match that search. Try “fabric”, “sport coat”, or “accessories”.</p>}</section>{mode === "archive" && <><div className="gg-archive-popular" id="popular"><div><h2>Most popular</h2><p>Guides and notes readers return to.</p></div><div className="gg-guide-list"><a href="/gentlemans-gazette/article/timeless-tailoring"><span>01</span><div><strong>The sport coat</strong><small>A versatile layer</small></div><b>↗</b></a><a href="/gentlemans-gazette/article/fabric-and-texture"><span>02</span><div><strong>Know your cloth</strong><small>Start with texture</small></div><b>↗</b></a><a href="/gentlemans-gazette/article/travel-and-accessories"><span>03</span><div><strong>Travel accessories</strong><small>Useful pieces, packed well</small></div><b>↗</b></a></div></div><section id="all-articles"><div className="gg-section-heading"><h2>All articles &amp; videos</h2><span>{cards.length} stories</span></div><div className="gg-card-grid">{cards.map(card => <Card key={card.id} item={card} publisher="gazette" shoppable={card.id === "sport"} />)}</div></section></>}</main><GazetteFooter /></div>
 }
 
 function StoryHeader() {
-  return <>
-    <div className="storyrain-topline flex items-center justify-between px-5 py-2 text-[9px] uppercase tracking-[.19em] md:px-10"><span>Stories worth discovering</span><span>New York&nbsp; · &nbsp;Everywhere</span></div>
-    <header className="storyrain-header mx-auto max-w-[1440px] px-5 md:px-10">
-      <div className="relative flex min-h-[82px] items-center justify-between border-b border-[#e9e9e9]">
-        <a className="storyrain-menu" href="#storyrain-stories" aria-label="Browse stories"><span></span><span></span></a>
-        <a className="storyrain-masthead" href="/story-and-rain" aria-label="Story and Rain home">story<span>+</span>rain</a>
-        <a aria-label="Browse fashion" href="#storyrain-stories" className="storyrain-search">⌕</a>
-      </div>
-      <nav className="storyrain-nav hidden items-center justify-center gap-7 py-4 lg:flex" aria-label="Main navigation">{["Cover", "Cover Archive", "What's New", "Fashion", "Beauty + Wellness", "Culture + Living", "Video", "The Podcast"].map(item => <a key={item} href="#storyrain-stories">{item}</a>)}</nav>
-    </header>
-  </>
+  const [searchOpen, setSearchOpen] = useState(false)
+  return <><div className="sr-topline"><a href="/story-and-rain">Fashion, culture, living</a><span>Stories worth discovering</span><button type="button" aria-expanded={searchOpen} onClick={() => setSearchOpen(value => !value)} aria-label="Search Story + Rain">⌕</button></div><header className="sr-header"><a className="sr-masthead" href="/story-and-rain">STORY <i>+</i> RAIN</a>{searchOpen && <form className="publisher-search sr-search" action="/story-and-rain/search"><label><span className="sr-only">Search Story + Rain</span><input name="q" placeholder="Search stories, people, and style" autoFocus /></label><button type="submit">Search ↗</button></form>}<nav aria-label="Story + Rain navigation"><a href="/story-and-rain">Cover</a><a href="/story-and-rain/archive?category=cover">Cover archive</a><a href="/story-and-rain/archive">What's new</a><a href="/story-and-rain/archive?category=fashion">Fashion</a><a href="/story-and-rain/archive?category=beauty">Beauty + wellness</a><a href="/story-and-rain/archive?category=culture">News, culture + living</a><a href="/story-and-rain/archive?category=screened">Screened</a><a href="/story-and-rain/archive?category=podcast">The podcast</a></nav></header></>
 }
-function StoryFooter() {
-  return <footer className="storyrain-footer"><a className="storyrain-masthead" href="/story-and-rain">story<span>+</span>rain</a><div>Fashion&nbsp; · &nbsp;Culture&nbsp; · &nbsp;Living&nbsp; · &nbsp;The Podcast</div><p>© Story + Rain&nbsp; 2026</p></footer>
-}
+function StoryFooter() { return <footer className="sr-footer"><a className="sr-masthead" href="/story-and-rain">STORY <i>+</i> RAIN</a><p>Story + Rain uncovers the people, ideas, and objects shaping culture now. There's magic in the mix.</p><div className="sr-footer-links"><section><strong>Our story</strong><a href="/story-and-rain">The masthead</a><a href="/story-and-rain/archive">The archive</a></section><section><strong>Explore</strong><a href="/story-and-rain#fashion">Fashion</a><a href="/story-and-rain#culture">Culture + living</a></section><section><strong>Follow</strong><a href="https://www.instagram.com/storyandrain/" target="_blank" rel="noreferrer">Instagram ↗</a><a href="https://www.youtube.com/c/StoryAndRain" target="_blank" rel="noreferrer">YouTube ↗</a></section></div><small>© Story + Rain · Demo experience · <a href="/">Publisher demos</a></small></footer> }
+
 function StoryHome() {
-  return <div className="publisher-page storyrain-page min-h-screen bg-white text-[#161616]">
-    <StoryHeader />
-    <main className="mx-auto max-w-[1440px] px-4 pb-20 md:px-10">
-      <div className="storyrain-section-heading mt-6"><span>THE STORY</span><span>FASHION &nbsp;/&nbsp; COVER</span></div>
-      <section className="storyrain-home-lead">
-        <PublisherMedia mediaId="sr-lily-suit" />
-        <div className="storyrain-home-copy">
-          <p className="storyrain-kicker">Fashion · The story</p>
-          <h1 className="storyrain-serif mt-4 text-5xl leading-[.98] md:text-7xl">Well<br />Suited</h1>
-          <p className="storyrain-serif mt-5 text-xl leading-7">Lily Rabe is just the right fit in the new seasonless suit.</p>
-          <a className="storyrain-more mt-8 inline-flex" href={STORY_ARTICLE}>Read the story&nbsp; ↗</a>
-        </div>
-      </section>
-      <section id="storyrain-stories" className="storyrain-listing mt-12">
-        <div className="storyrain-section-heading"><span>WHAT'S NEW</span><span>FASHION&nbsp; + &nbsp;CULTURE</span></div>
-        <div className="storyrain-listing-grid">
-          <article className="storyrain-story-card storyrain-style-note"><p className="storyrain-kicker">STYLE NOTES · THE WARDROBE</p><h2 className="storyrain-serif mt-5 text-4xl md:text-5xl">The ease of a well-cut jacket</h2><p className="mt-5 max-w-xl text-sm leading-7 text-[#777]">A relaxed silhouette can still feel considered. Look for a clean shoulder, room to move, and a length that works with the pieces already in your closet.</p><p className="mt-4 max-w-xl text-sm leading-7 text-[#777]">Wear it open over a simple base, or bring in a tailored layer when the occasion asks for more structure.</p></article>
-          <div className="storyrain-text-list">
-            <article><p className="storyrain-kicker">Fashion · Shopping</p><h2 className="storyrain-serif mt-2 text-3xl">A white shirt, after hours</h2><p>Change the proportions and accessories to take an everyday staple into the evening.</p></article>
-            <article><p className="storyrain-kicker">Fashion · Personal style</p><h2 className="storyrain-serif mt-2 text-3xl">Jewelry with a point of view</h2><p>One sculptural piece can give a familiar outfit its own signature.</p></article>
-            <article><p className="storyrain-kicker">Culture · Living</p><h2 className="storyrain-serif mt-2 text-3xl">The pieces that move with you</h2><p>Build a wardrobe around comfort, character, and the rhythm of the day.</p></article>
-          </div>
-        </div>
-      </section>
-    </main>
-    <StoryFooter />
-  </div>
-}
-function StoryArticle() {
-  return <div className="publisher-page storyrain-page min-h-screen bg-white text-[#161616]">
-    <StoryHeader />
-    <main className="mx-auto max-w-[1440px] px-4 pb-20 md:px-10">
-      <div className="storyrain-section-heading mt-6"><span><a href="/story-and-rain">HOME</a> / FASHION</span><span>THE STORY</span></div>
-      <div className="storyrain-article-title"><p className="storyrain-kicker">Fashion · Celebrity style</p><h1 className="storyrain-serif mt-4 text-5xl md:text-7xl">Well Suited</h1><p className="storyrain-serif mt-4 text-xl">Starring in David E. Kelley's <em>Love + Death</em>, Lily Rabe is just the right fit in the new seasonless suit.</p></div>
-      <section className="storyrain-article-photo"><PublisherMedia mediaId="sr-lily-suit" /><p className="storyrain-photo-credit">Lily Rabe in a three-piece suit by The Frankie Shop. Photograph from Story + Rain's “Well Suited” editorial.</p></section>
-      <article className="storyrain-copy mx-auto mt-10 max-w-[710px]">
-        <p>A seasonless suit has room for personality. The longer line of an oversized jacket gives the look ease, while a tailored waistcoat adds structure under it.</p>
-        <p>In Story + Rain's portrait of Lily Rabe, the layered grey pieces make a strong monochrome statement. Explore the image to see our closest available matches for the blazer and waistcoat, plus three alternatives for each.</p>
-        <h2 className="storyrain-serif mt-10 text-3xl">Ease in the silhouette</h2>
-        <p>The jacket's generous shape gives the outfit its relaxed line. A defined shoulder and long lapel keep that volume deliberate, while the waistcoat introduces a closer layer underneath. The contrast between the two proportions is what keeps a three-piece look from feeling overly formal.</p>
-        <p>Worn together, the layers create a continuous column of grey. The restrained palette lets cut and proportion stand out; it also makes each piece easier to style on its own. A blazer can sit over a simple top, and the waistcoat can bring structure to a lighter outfit.</p>
-        <h2 className="storyrain-serif mt-10 text-3xl">One palette, several moods</h2>
-        <p>Monochrome dressing does not need to feel uniform. Differences in texture, finish, and shape add depth even when the colors stay close. Keeping accessories edited gives those details room, while a contrasting shoe or piece of jewelry can shift the look toward evening.</p>
-        <p>The idea is less about building a matching set and more about choosing pieces that speak the same visual language. A softly structured jacket, a tailored vest, and relaxed trousers can move between settings without losing the cohesion of the original look.</p>
-        <h2 className="storyrain-serif mt-10 text-3xl">Wear each layer your own way</h2>
-        <p>A three-piece suit offers several ways to get dressed. The jacket and trousers make a complete look; the waistcoat can stand alone with a shirt or fine knit. Separating the pieces also makes the overall investment more versatile, since each layer can work with items already in a wardrobe.</p>
-        <p>Proportion is the detail to watch when breaking up a suit. A longer jacket pairs well with a clean, close-fitting base, while a waistcoat looks most intentional when its hem meets the waistband rather than interrupting it. These small adjustments keep the relaxed styling from appearing accidental.</p>
-        <h2 className="storyrain-serif mt-10 text-3xl">The finishing touches</h2>
-        <p>Accessories can stay minimal when the tailoring already has presence. A delicate earring or ring picks up the look's polish without competing with the clean lines. For a stronger contrast, a textured bag or shoe changes the mood while leaving the suit as the anchor.</p>
-        <p>There is no single formula for seasonless dressing. The practical test is whether the pieces feel comfortable alone and together, and whether a change of layer can carry them into another part of the day. That flexibility gives a sharply tailored look a more personal, lived-in quality.</p>
-        <h2 className="storyrain-serif mt-10 text-3xl">Behind the portrait</h2>
-        <p>The editorial was photographed in Los Angeles by Matt Sayles, with Katie Bofshever styling Lily Rabe. The shoot places the suit within a broader fashion story, where tailoring moves between classic references and contemporary ease.</p>
-        <p>For this demo, the pictured blazer and waistcoat are represented by closest available retailer matches. The credited label is known from the editorial, but the exact current retail styles could not be confirmed from the photograph alone.</p>
-        <a className="storyrain-more mt-8 inline-flex" href="/story-and-rain">← More stories</a>
-      </article>
-    </main>
-    <StoryFooter />
-  </div>
+  return <div className="publisher-page storyrain-page"><StoryHeader /><main>
+    <section id="cover" className="sr-cover"><div className="sr-cover-photo"><PublisherMedia mediaId="sr-cover-story" className="sr-cover-media" /><span>STORY + RAIN · THE COVER</span></div><div className="sr-cover-copy"><p className="sr-kicker">TV + FILM · COVER STORY</p><h1>Be warned.<br /><em>Hayes Warner.</em></h1><p>Stepping into the Ryan Murphy stratosphere and determined to make it as a multihyphenate, the actor is breaking down doors.</p><a href="/story-and-rain/article/hayes-warner">Read the cover story <span>↗</span></a></div></section>
+    <section id="whats-new" className="sr-section"><div className="sr-section-head"><p className="sr-kicker">THE LATEST</p><h2>What’s new</h2><a href="/story-and-rain/archive">View the archive ↗</a></div><div className="sr-card-grid sr-whats-new">{srCards.slice(0, 3).map(card => <Card key={card.id} item={card} publisher="storyRain" shoppable={card.id === "well-suited"} />)}</div></section>
+    <section id="fashion" className="sr-section sr-feature-strip"><div><p className="sr-kicker">FASHION · STYLE</p><h2>Get dressed for<br /><em>your kind of day.</em></h2><p>Fresh perspectives on the pieces you reach for, and the details that make them feel like your own.</p><a href="/story-and-rain/article/the-right-white-shirt">Explore the white shirt edit ↗</a></div><div className="sr-feature-grid">{srCards.slice(1, 4).map(card => <Card key={card.id} item={card} publisher="storyRain" shoppable={card.id === "well-suited"} />)}</div></section>
+    <section id="beauty" className="sr-section sr-tinted"><div className="sr-section-head"><p className="sr-kicker">BEAUTY + WELLNESS</p><h2>Good to yourself.</h2><a href="/story-and-rain/archive?category=beauty">More from the section ↗</a></div><div className="sr-card-grid sr-three">{srCards.filter(card => card.id === "beauty" || card.id === "screened" || card.id === "jewel").map(card => <Card key={card.id} item={card} publisher="storyRain" />)}</div></section>
+    <section id="culture" className="sr-section"><div className="sr-section-head"><p className="sr-kicker">NEWS · CULTURE + LIVING</p><h2>Life, with a point of view.</h2><a href="/story-and-rain/article/reading-nooks">Discover a story ↗</a></div><div className="sr-card-grid sr-three">{srCards.filter(card => ["reading", "recipe", "video"].includes(card.id)).map(card => <Card key={card.id} item={card} publisher="storyRain" />)}</div></section>
+    <section id="screened" className="sr-screened"><img src={srImages.screened} alt="Arielle Kebbel portrait in Story + Rain's Screened series" loading="lazy" /><div><p className="sr-kicker">SCREENED</p><h2>Getting into character.</h2><p>Portraits and conversations with the people bringing memorable stories to the screen.</p><a href="https://storyandrain.com/article/tv-film-screened-arielle-kebbel" target="_blank" rel="noreferrer">Read Screened ↗</a></div><img src={srImages.jenny} alt="Jenny Slate behind the scenes in a colorful townhouse for Story + Rain Video" loading="lazy" /></section>
+    <section id="podcast" className="sr-podcast"><img src={srImages.jewel} alt="Story + Rain podcast artwork for Jewel, episode 176" loading="lazy" /><div><p className="sr-kicker">THE PODCAST</p><h2>Story + Rant</h2><p>Conversation, curiosity, and the references that lead somewhere unexpected.</p><a href="https://podcasts.apple.com/us/podcast/story-rain-talks/id1460098613" target="_blank" rel="noreferrer">Listen to the podcast ↗</a></div><span className="sr-sparkle" aria-hidden="true">✳</span></section>
+  </main><StoryFooter /></div>
 }
 
-export function PublisherPage({ publisher }: { publisher: "gazette" | "storyRain" }) {
-  const article = window.location.pathname.includes("/article/")
-  useEffect(() => { document.title = publisher === "gazette" ? "Gentleman's Gazette | Silvr Demo" : "Story + Rain | Silvr Demo" }, [publisher])
-  return publisher === "gazette" ? article ? <GazetteArticle /> : <GazetteHome /> : article ? <StoryArticle /> : <StoryHome />
+function StoryArchive({ mode = "archive" }: { mode?: "archive" | "search" }) {
+  const params = new URLSearchParams(window.location.search), query = params.get("q")?.toLowerCase().trim() ?? "", category = params.get("category")?.toLowerCase() ?? ""
+  const cards = srCards.filter(card => (!query || `${card.title} ${card.category} ${card.dek}`.toLowerCase().includes(query)) && (!category || `${card.category} ${card.title}`.toLowerCase().includes(category)))
+  return <div className="publisher-page storyrain-page"><StoryHeader /><main className="sr-archive"><p className="sr-kicker">THE STORY + RAIN ARCHIVE</p><h1>{mode === "search" ? `Search: “${params.get("q") ?? ""}”` : "A story for every curiosity."}</h1><p className="sr-archive-dek">Fashion, beauty, culture, and living—collected in one place.</p><div className="sr-archive-tabs"><a href="/story-and-rain/archive#whats-new">What's new</a><a href="/story-and-rain/archive?category=fashion">Fashion</a><a href="/story-and-rain/archive?category=beauty">Beauty + wellness</a><a href="/story-and-rain/archive?category=culture">Culture + living</a></div><section id="whats-new"><div className="sr-section-head"><h2>{mode === "search" ? "Stories" : "Latest"}</h2><span>{cards.length} features</span></div>{cards.length ? <div className="sr-card-grid sr-three">{cards.map(card => <Card key={card.id} item={card} publisher="storyRain" shoppable={card.id === "well-suited"} />)}</div> : <p className="publisher-empty">No stories match that search. Try “fashion”, “white shirt”, or “culture”.</p>}</section></main><StoryFooter /></div>
+}
+
+function ArticlePage({ publisher, article }: { publisher: Publisher; article: Article }) {
+  const gazette = publisher === "gazette", list = allArticles[publisher], house = homePath[publisher]
+  const related = list.filter(item => item.slug !== article.slug)
+  useEffect(() => { document.title = `${article.title} · ${gazette ? "Gentleman's Gazette" : "Story + Rain"}`; return () => { document.title = "Silvr Publisher Demos" } }, [article.title, gazette])
+  return gazette ? <div className="publisher-page gazette-page"><GazetteHeader compact /><main className="gg-article-main"><p className="gg-breadcrumb"><a href={house}>Home</a> / <a href={`${house}/archive`}>Articles &amp; videos</a> / {article.category}</p><header className="gg-article-header"><p className="gg-eyebrow">{article.category}</p><h1>{article.title}</h1><p className="gg-dek">{article.dek}</p><div className="gg-byline"><span>Gentleman's Gazette · Demo editorial</span><span>{article.date}</span><span>{article.readTime}</span></div></header><figure className="gg-article-hero">{article.mediaId ? <PublisherMedia mediaId={article.mediaId} /> : <img src={article.hero} alt={article.heroAlt} />}<figcaption>{article.credits}</figcaption></figure><div className="gg-article-layout"><aside className="gg-toc"><p>IN THIS GUIDE</p>{article.sections.filter(s => s.heading).map((section, index) => <a key={section.heading} href={`#gg-section-${index}`}>{section.heading}</a>)}</aside><article className="gg-reading"><p className="gg-lede">{article.sections[0]?.paragraphs?.[0]}</p>{article.sections.map((section, index) => <section key={`${section.heading ?? "intro"}-${index}`} id={section.heading ? `gg-section-${article.sections.slice(0,index).filter(s => s.heading).length}` : undefined}>{section.heading && <h2>{section.heading}</h2>}{section.paragraphs?.slice(section.heading ? 0 : 1).map((paragraph, pIndex) => <p key={pIndex}>{paragraph}</p>)}{section.quote && <blockquote>{section.quote}</blockquote>}{section.image && <figure className="gg-inline-photo">{section.mediaId ? <PublisherMedia mediaId={section.mediaId} /> : <img src={section.image} alt={section.alt ?? ""} loading="lazy" />}<figcaption>{section.caption}</figcaption></figure>}</section>)}<a className="gg-back-home" href={house}>← Back to the Gazette</a></article></div><section className="gg-related"><div className="gg-section-heading"><div><p className="gg-eyebrow">KEEP READING</p><h2>More from the Gazette</h2></div><a href={`${house}/archive`}>Browse archive ↗</a></div><div className="gg-card-grid">{related.map(item => <a className="gg-related-card" key={item.slug} href={`${house}/article/${item.slug}`}><img src={item.hero} alt={item.heroAlt} loading="lazy" /><p>{item.category}</p><h3>{item.title} ↗</h3></a>)}</div></section></main><GazetteFooter /></div>
+    : <div className="publisher-page storyrain-page"><StoryHeader /><main className="sr-article-main"><p className="sr-breadcrumb"><a href={house}>Home</a> / {article.category}</p><header className="sr-article-heading"><p className="sr-kicker">{article.category}</p><h1>{article.title}</h1><p className="sr-dek">{article.dek}</p><div className="sr-byline"><span>Story + Rain · Demo editorial</span><span>{article.date}</span><span>{article.readTime}</span></div></header><figure className="sr-article-hero">{article.mediaId ? <PublisherMedia mediaId={article.mediaId} /> : <img src={article.hero} alt={article.heroAlt} />}<figcaption>{article.credits}</figcaption></figure><article className="sr-reading"><p className="sr-lede">{article.sections[0]?.paragraphs?.[0]}</p>{article.sections.map((section, index) => <section key={`${section.heading ?? "intro"}-${index}`}>{section.heading && <h2>{section.heading}</h2>}{section.paragraphs?.slice(section.heading ? 0 : 1).map((paragraph, pIndex) => <p key={pIndex}>{paragraph}</p>)}{section.quote && <blockquote>{section.quote}</blockquote>}{section.image && <figure className="sr-inline-photo"><img src={section.image} alt={section.alt ?? ""} loading="lazy" /><figcaption>{section.caption}</figcaption></figure>}</section>)}<a className="sr-back-home" href={house}>← Back to Story + Rain</a></article><section className="sr-related"><div className="sr-section-head"><div><p className="sr-kicker">STAY A LITTLE LONGER</p><h2>More stories to discover</h2></div><a href={`${house}/archive`}>Explore all ↗</a></div><div className="sr-card-grid sr-three">{related.map(item => <a className="sr-related-card" key={item.slug} href={`${house}/article/${item.slug}`}><img src={item.hero} alt={item.heroAlt} loading="lazy" /><p>{item.category}</p><h3>{item.title} ↗</h3></a>)}</div></section></main><StoryFooter /></div>
+}
+
+function PublisherNotFound({ publisher }: { publisher: Publisher }) { const home = homePath[publisher]; return <div className={`publisher-page ${publisher === "gazette" ? "gazette-page" : "storyrain-page"}`}>{publisher === "gazette" ? <GazetteHeader /> : <StoryHeader />}<main className="publisher-not-found"><p>404 · STORY NOT FOUND</p><h1>This page isn’t in the demo archive.</h1><a href={home}>Return to {publisher === "gazette" ? "the Gazette" : "Story + Rain"} ↗</a><a href={`${home}/archive`}>Browse the archive</a></main>{publisher === "gazette" ? <GazetteFooter /> : <StoryFooter />}</div> }
+
+export function PublisherPage({ publisher }: { publisher: Publisher }) {
+  const pathname = window.location.pathname.replace(/\/$/, "")
+  if (pathname.endsWith("/archive")) return publisher === "gazette" ? <GazetteArchive /> : <StoryArchive />
+  if (pathname.endsWith("/search")) return publisher === "gazette" ? <GazetteArchive mode="search" /> : <StoryArchive mode="search" />
+  const articlePrefix = `${homePath[publisher]}/article/`
+  if (pathname.startsWith(articlePrefix)) {
+    const slug = pathname.slice(articlePrefix.length)
+    const aliases: Record<string, string> = publisher === "gazette" ? { "custom-sport-coat-collection": "timeless-tailoring" } : { "shoppable-look": "well-suited" }
+    const article = allArticles[publisher].find(item => item.slug === (aliases[slug] ?? slug))
+    return article ? <ArticlePage publisher={publisher} article={article} /> : <PublisherNotFound publisher={publisher} />
+  }
+  const params = new URLSearchParams(window.location.search), category = params.get("category")
+  if (category) return publisher === "gazette" ? <GazetteArchive /> : <StoryArchive />
+  return publisher === "gazette" ? <GazetteHome /> : <StoryHome />
 }

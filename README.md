@@ -1,58 +1,39 @@
 # Silvr Publisher Commerce Demos
 
-Responsive, local publisher pages that demonstrate Silvr's shoppable editorial experience for Gentleman's Gazette and Story + Rain. Eligible fashion imagery can reveal garment hotspots, product details, retailer links, and related items while preserving the publisher's visual identity.
+Two responsive editorial demos for Gentleman's Gazette and Story + Rain. Each keeps its publisher's own visual identity and content structure while sharing the Silvr media, hotspot, product, similar-items, and retailer-link flow.
 
-## Technologies
-
-- React 19 and TypeScript
-- Vite 8
-- Tailwind CSS 4
-- npm
-
-## Local setup
+## Run locally
 
 Use Node.js 20.19+ or 22.12+ with npm.
 
 ```bash
 npm install
 npm run dev
+npm run build
+npx tsc --noEmit
 ```
 
-Vite prints the local development URL. The publisher pages can be opened directly at the routes below.
+There are no repository `lint` or automated `test` scripts.
 
-## Publisher routes
+## Routes
 
-- `/gentlemans-gazette` — publisher homepage with a shoppable featured image and editorial notes.
-- `/gentlemans-gazette/article/timeless-tailoring` — complete tailoring article with shoppable media.
-- `/story-and-rain` — publisher homepage with a shoppable fashion editorial and new style features.
-- `/story-and-rain/article/well-suited` — complete fashion article with shoppable media.
-- `/` — a publisher demo selector linking to both experiences.
-- `/silvr-original-demo` — the original Silvr interaction demo retained in the project.
+- `/` — choose a publisher.
+- `/gentlemans-gazette` — editorial home; `/gentlemans-gazette/archive` and `/gentlemans-gazette/search?q=...` — useful archive/search routes.
+- `/gentlemans-gazette/article/timeless-tailoring`, `/gentlemans-gazette/article/fabric-and-texture`, `/gentlemans-gazette/article/travel-and-accessories` — three distinct demo guides.
+- `/story-and-rain` — editorial home; `/story-and-rain/archive`, `/story-and-rain/archive?category=fashion`, `/story-and-rain/search?q=...` — archive/search routes.
+- `/story-and-rain/article/hayes-warner`, `/story-and-rain/article/well-suited`, `/story-and-rain/article/the-right-white-shirt`, `/story-and-rain/article/reading-nooks` — distinct demo features and shopping edit.
+- Unknown publisher article slugs render an explicit not-found view. Routes resolve on direct load and refresh.
 
-Story + Rain's demo uses its “Well Suited” editorial image and does not reuse the original Silvr demo video. Both publisher experiences use the shared Silvr chip, hotspot, product sheet, similar-items, and retailer-redirection components.
+## Silvr integration
 
-## Development and build commands
+`src/App.tsx` owns the shared interaction and `src/publisherCatalog.ts` owns the local content-to-product fixtures. The media observer caches per image, only exposes the chip while an eligible image is in view, and maps hotspots through `object-fit: cover` cropping. Cards keep editorial navigation separate from the Silvr chip. The drawer supports Escape/X close, focus containment/restoration, and body scroll lock; similar products use their own retailer links. The shopping CTA opens the retailer in a new tab with `noopener noreferrer`.
 
-```bash
-npm run dev       # start the Vite development server
-npm run build     # create the production build in dist/
-npm run preview   # preview the production build locally
-npx tsc --noEmit  # check TypeScript types
-```
+The checkout has no product-recognition API or credentials. `CATALOG_ADAPTER` explicitly identifies the hand-authored fixtures as visual alternatives, not recognition results. Prices and availability are unverified, so the UI says “Check retailer” and links out. No publisher video has a verified product/time association; the demo does not make videos shoppable.
 
-The project currently defines no `lint` or `test` scripts.
+## Research and QA
 
-## Eligible media and hotspots
+- [Publisher source, product-match, and price-verification notes](PUBLISHER_PRODUCT_RESEARCH.md)
+- [Reference parity, implementation audit, validation results, and screenshot inventory](PUBLISHER_DEMO_AUDIT.md)
+- Screenshots: [screenshots/publisher-demo](screenshots/publisher-demo)
 
-Publisher images and videos are rendered through the reusable `PublisherMedia` component in `src/PublisherPages.tsx`. It reads media metadata from `src/publisherCatalog.ts`. The shared observer in `src/App.tsx` shows the Silvr entry chip only while an eligible media frame intersects the viewport and measures at least 240 × 180 CSS pixels. Editorial and fashion-readability flags keep logos, ads, decorative assets, and unclear or small images out of the shopping experience.
-
-Hotspot locations are percentages of the source image. The shared image component accounts for `object-fit: cover` cropping and recalculates placement on resize. Chips and hotspots are positioned inside each relative media frame, so they travel with their image while the page scrolls.
-
-To add another shoppable image or video:
-
-1. Inspect the visible garments and add a media record to `PUBLISHER_MEDIA` with a unique ID, source, media type, descriptive alt text, eligibility flags, and hotspot IDs.
-2. Add a `HOTSPOTS` record for each confidently identifiable garment. Set `x` and `y` as percentages on the source media.
-3. Add a researched primary product and at least three same-category alternatives to `RETAIL_PRODUCTS`, including each item's product image, price, currency, retailer URL, source URL, category, and match classification. Use `Exact match` only when verified.
-4. Place `<PublisherMedia mediaId="..." />` in the publisher page where the media belongs. The same component works in features, article bodies, listings, and galleries.
-
-Product details and retailer URLs are mock catalog data and may change as retailer prices, availability, and sizes change. `PUBLISHER_PRODUCT_RESEARCH.md` records garment observations, product links, and match limitations.
+Source photographs and product imagery are attributed in the publisher content and research notes. Demo article copy is original and is not attributed to the real publishers' authors.
