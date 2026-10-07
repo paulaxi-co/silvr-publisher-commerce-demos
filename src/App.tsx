@@ -59,7 +59,7 @@ const Icons = {
 // --- SHOPPING COMPONENTS ---
 
 const Hotspot = ({ product, isActive, onHover, onLeave, onOpen }: {
-  product: Product; isActive: boolean; onHover: (product: Product) => void;
+  product: Product; isActive: boolean; onHover: (product: Product, anchor: HTMLElement) => void;
   onLeave: () => void; onOpen: (product: Product) => void
 }) => (
   <button
@@ -67,9 +67,9 @@ const Hotspot = ({ product, isActive, onHover, onLeave, onOpen }: {
     data-silvr-ui="true"
     className={`hotspot absolute z-20 flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-200 hover:scale-110 focus-visible:scale-110 sm:h-12 sm:w-12 ${isActive ? "scale-110" : ""}`}
     style={{ top: `${product.y}%`, left: `calc(${product.x}% + ${product.offsetX ?? 0}px)`, transform: "translate(-50%, -50%)" }}
-    onMouseEnter={() => onHover(product)}
+    onMouseEnter={(event) => onHover(product, event.currentTarget)}
     onMouseLeave={onLeave}
-    onFocus={() => onHover(product)}
+    onFocus={(event) => onHover(product, event.currentTarget)}
     onClick={(event) => { event.stopPropagation(); onOpen(product) }}
     aria-label={`Explore ${product.name}`}
     aria-expanded={isActive}
@@ -90,7 +90,8 @@ const CatalogImage = ({ src, alt, className }: { src: string; alt: string; class
   return <img src={src} alt={alt} className={className} loading="lazy" onError={() => setFailed(true)} />
 }
 
-const ProductPreview = ({ product, onEnter, onLeave, onOpen, onSimilar }: {
+const ProductPreview = ({ product, position, onEnter, onLeave, onOpen, onSimilar }: {
+  position?: { left: number; top: number }
   product: Product; onEnter: () => void; onLeave: () => void;
   onOpen: () => void; onSimilar: () => void
 }) => (
@@ -99,6 +100,7 @@ const ProductPreview = ({ product, onEnter, onLeave, onOpen, onSimilar }: {
     role="dialog"
     aria-label={`Shop this style: ${product.name}`}
     className="product-preview fixed z-[1200] rounded-2xl border border-black/10 bg-white p-4 shadow-2xl"
+    style={position ? { left: position.left, top: position.top } : undefined}
     onMouseEnter={onEnter}
     onMouseLeave={onLeave}
     onClick={(event) => event.stopPropagation()}
@@ -272,6 +274,7 @@ function useVisibleEditorialMedia(ref: React.RefObject<HTMLElement | null>, type
 export const ShoppableImage = ({ imageSrc, products, nativeWidth, imageAlt = "Fashion editorial", mediaId = "editorial-image", shopLabel = "Shop This Image", frameClassName = "", chipCorner = "bottom-left" }: { imageSrc: string; products: Product[]; nativeWidth: number; imageAlt?: string; mediaId?: string; shopLabel?: string; frameClassName?: string; chipCorner?: "bottom-left" | "top-left" }) => {
   const [shopMode, setShopMode] = useState(false)
   const [preview, setPreview] = useState<Product | null>(null)
+  const [previewPosition, setPreviewPosition] = useState<{ left: number; top: number } | null>(null)
   const [selected, setSelected] = useState<Product | StoreItem | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [similarTarget, setSimilarTarget] = useState<Product | null>(null)
@@ -279,6 +282,7 @@ export const ShoppableImage = ({ imageSrc, products, nativeWidth, imageAlt = "Fa
   const mediaRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
+  const previewAnchorRef = useRef<HTMLElement | null>(null)
   const [frameSize, setFrameSize] = useState({ width: 0, height: 0, naturalWidth: 0, naturalHeight: 0 })
   const eligible = useVisibleEditorialMedia(mediaRef, "image", imageAlt, products)
   useEffect(() => {
@@ -302,21 +306,61 @@ export const ShoppableImage = ({ imageSrc, products, nativeWidth, imageAlt = "Fa
   }).filter((product) => product.x >= 3 && product.x <= 97 && product.y >= 3 && product.y <= 97)
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const clearLeave = () => { if (leaveTimer.current) clearTimeout(leaveTimer.current) }
-  const scheduleLeave = () => { clearLeave(); leaveTimer.current = setTimeout(() => setPreview(null), 160) }
+  const hidePreview = () => { setPreview(null); setPreviewPosition(null) }
+  const scheduleLeave = () => { clearLeave(); leaveTimer.current = setTimeout(hidePreview, 160) }
   useEffect(() => () => clearLeave(), [])
-  const openItem = (product: Product) => { clearLeave(); setPreview(null); setSelected(product); setSheetOpen(true) }
+  const showPreview = (product: Product, anchor: HTMLElement) => {
+    clearLeave()
+    previewAnchorRef.current = anchor
+    setPreview(product)
+    if (frameSize.width > 680) { setPreviewPosition(null); return }
+    const rect = anchor.getBoundingClientRect()
+    const cardWidth = Math.min(440, window.innerWidth - 32)
+    const cardHeight = 220
+    const gap = 18
+    const preferredLeft = rect.right + gap + cardWidth <= window.innerWidth - 16 ? rect.right + gap : rect.left - gap - cardWidth
+    const left = window.innerWidth <= 600 ? 16 : Math.max(16, Math.min(preferredLeft, window.innerWidth - cardWidth - 16))
+    const preferredTop = window.innerWidth <= 600
+      ? (rect.bottom + gap + cardHeight <= window.innerHeight - 16 ? rect.bottom + gap : rect.top - gap - cardHeight)
+      : rect.top + rect.height / 2 - 44
+    const top = Math.max(16, Math.min(preferredTop, window.innerHeight - cardHeight - 16))
+    setPreviewPosition({ left, top })
+  }
+  useEffect(() => {
+    if (!previewPosition) return
+    const syncToHotspot = () => {
+      const anchor = previewAnchorRef.current
+      if (!anchor?.isConnected) { hidePreview(); return }
+      const rect = anchor.getBoundingClientRect()
+      if (rect.bottom < 0 || rect.top > window.innerHeight) { hidePreview(); return }
+      const cardWidth = Math.min(440, window.innerWidth - 32)
+      const cardHeight = 220
+      const gap = 18
+      const preferredLeft = rect.right + gap + cardWidth <= window.innerWidth - 16 ? rect.right + gap : rect.left - gap - cardWidth
+      const left = window.innerWidth <= 600 ? 16 : Math.max(16, Math.min(preferredLeft, window.innerWidth - cardWidth - 16))
+      const preferredTop = window.innerWidth <= 600
+        ? (rect.bottom + gap + cardHeight <= window.innerHeight - 16 ? rect.bottom + gap : rect.top - gap - cardHeight)
+        : rect.top + rect.height / 2 - 44
+      const top = Math.max(16, Math.min(preferredTop, window.innerHeight - cardHeight - 16))
+      setPreviewPosition({ left, top })
+    }
+    window.addEventListener("scroll", syncToHotspot, true)
+    window.addEventListener("resize", syncToHotspot)
+    return () => { window.removeEventListener("scroll", syncToHotspot, true); window.removeEventListener("resize", syncToHotspot) }
+  }, [Boolean(previewPosition)])
+  const openItem = (product: Product) => { clearLeave(); hidePreview(); setSelected(product); setSheetOpen(true) }
   const closeSheet = () => { setSheetOpen(false); setSimilarTarget(null); setSelected(null) }
   return (
     <div ref={mediaRef} data-silvr-media data-media-id={mediaId} data-media-type="image" className="relative mx-auto my-8 w-full md:my-10 lg:my-12" style={{ maxWidth: nativeWidth }}>
       <div ref={frameRef} className={`relative bg-gray-100 ${frameClassName}`}>
-        <div className="media-visual" onClick={() => setPreview(null)}>
+        <div className="media-visual" onClick={hidePreview}>
         <img ref={imageRef} src={imageSrc} alt={imageAlt} referrerPolicy="no-referrer" onError={() => setImageFailed(true)} onLoad={() => setImageFailed(false)} className={`block h-auto w-full transition-[filter] duration-300 ${shopMode ? "brightness-95 blur-[1px]" : ""}`} />
         {imageFailed && <div role="alert" className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-[#eceae5] p-6 text-center text-sm text-gray-700"><p>We couldn’t load this editorial image.</p><button type="button" className="rounded-full border border-gray-500 px-4 py-2" onClick={(event) => { event.stopPropagation(); setImageFailed(false); if (imageRef.current) imageRef.current.src = `${imageSrc}${imageSrc.includes("?") ? "&" : "?"}retry=${Date.now()}` }}>Retry image</button></div>}
         {shopMode && !imageFailed && <>
           <div className="absolute inset-0 bg-black/5 pointer-events-none" />
-          {displayedProducts.map((product) => <Hotspot key={product.id} product={product} isActive={preview?.id === product.id} onHover={(p) => { clearLeave(); setPreview(p) }} onLeave={scheduleLeave} onOpen={openItem} />)}
-          {preview && createPortal(<div className="silvr-preview-overlay" aria-live="polite"><ProductPreview product={preview} onEnter={clearLeave} onLeave={scheduleLeave} onOpen={() => openItem(preview)} onSimilar={() => { setSelected(preview); setSimilarTarget(preview); setSheetOpen(true); setPreview(null) }} /></div>, document.body)}
-          <button data-silvr-ui="true" type="button" className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-gray-950/65 text-white" onClick={(event) => { event.stopPropagation(); setShopMode(false); setPreview(null) }} aria-label="Exit shop mode"><Icons.X size={16} /></button>
+          {displayedProducts.map((product) => <Hotspot key={product.id} product={product} isActive={preview?.id === product.id} onHover={showPreview} onLeave={scheduleLeave} onOpen={openItem} />)}
+          {preview && createPortal(<div className={`silvr-preview-overlay ${previewPosition ? "is-anchored" : ""}`} aria-live="polite"><ProductPreview product={preview} position={previewPosition ?? undefined} onEnter={clearLeave} onLeave={scheduleLeave} onOpen={() => openItem(preview)} onSimilar={() => { setSelected(preview); setSimilarTarget(preview); setSheetOpen(true); hidePreview() }} /></div>, document.body)}
+          <button data-silvr-ui="true" type="button" className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-gray-950/65 text-white" onClick={(event) => { event.stopPropagation(); setShopMode(false); hidePreview() }} aria-label="Exit shop mode"><Icons.X size={16} /></button>
         </>}
         </div>
         {eligible && displayedProducts.length > 0 && !imageFailed && <ShopChip label={shopLabel} corner={chipCorner} active={shopMode} onClick={() => { if (!shopMode) setShopMode(true); else { setSelected(null); setSimilarTarget(null); setSheetOpen(true) } }} />}

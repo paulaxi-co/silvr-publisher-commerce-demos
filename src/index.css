@@ -36,6 +36,14 @@ h1, h2, h3, .font-serif {
   padding: 16px;
   pointer-events: none;
 }
+.silvr-preview-overlay.is-anchored {
+  display: block;
+  place-items: initial;
+}
+.silvr-preview-overlay.is-anchored .product-preview {
+  position: fixed;
+  margin: 0;
+}
 .product-preview {
   position: relative;
   left: auto;
