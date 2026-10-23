@@ -277,11 +277,12 @@ const BottomSheet = ({ isOpen, onClose, products, selectedProduct, onSelectProdu
   )
 }
 
-const ShopChip = ({ label, count, active, onClick, video = false, corner = "bottom-left" }: {
-  label: string; count?: number; active: boolean; onClick: () => void; video?: boolean; corner?: "bottom-left" | "top-left"
+// The label only: no item count next to it, a shopper would not know what the number means (SIL-1592).
+const ShopChip = ({ label, onClick, video = false, corner = "bottom-left" }: {
+  label: string; onClick: () => void; video?: boolean; corner?: "bottom-left" | "top-left"
 }) => (
-  <button data-silvr-ui="true" type="button" onClick={(event) => { event.stopPropagation(); onClick() }} className={`shop-chip absolute left-3 z-30 flex min-h-11 max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-md transition-colors sm:left-4 ${corner === "top-left" ? "top-3 sm:top-4" : "bottom-3 sm:bottom-4"} ${video ? "border border-white/30 bg-gray-950/75 text-white hover:bg-gray-950" : "border border-gray-900/10 bg-white/95 text-gray-900 hover:bg-white"}`} aria-label={count === undefined ? label : `${label}, ${count} items`}>
-    <Icons.ShoppingBag /> {label} {count !== undefined && !active && <span className="border-l border-current/20 pl-2 opacity-70">{count}</span>}
+  <button data-silvr-ui="true" type="button" onClick={(event) => { event.stopPropagation(); onClick() }} className={`shop-chip absolute left-3 z-30 flex min-h-11 max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-md transition-colors sm:left-4 ${corner === "top-left" ? "top-3 sm:top-4" : "bottom-3 sm:bottom-4"} ${video ? "border border-white/30 bg-gray-950/75 text-white hover:bg-gray-950" : "border border-gray-900/10 bg-white/95 text-gray-900 hover:bg-white"}`}>
+    <Icons.ShoppingBag /> {label}
   </button>
 )
 
@@ -352,7 +353,7 @@ export const ShoppableImage = ({ imageSrc, products, nativeWidth, imageAlt = "Fa
           {preview && <ProductPreview product={preview} onEnter={clearLeave} onLeave={scheduleLeave} onOpen={() => openItem(preview)} onSimilar={() => { setSelected(preview); setSimilarTarget(preview); setSheetOpen(true); setPreview(null) }} />}
           <button data-silvr-ui="true" type="button" className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-gray-950/65 text-white" onClick={(event) => { event.stopPropagation(); setShopMode(false); setPreview(null) }} aria-label="Exit shop mode"><Icons.X size={16} /></button>
         </>}
-        {eligible && displayedProducts.length > 0 && <ShopChip label={shopLabel} corner={chipCorner} active={shopMode} onClick={() => { if (!shopMode) setShopMode(true); else { setSelected(null); setSimilarTarget(null); setSheetOpen(true) } }} />}
+        {eligible && displayedProducts.length > 0 && <ShopChip label={shopLabel} corner={chipCorner} onClick={() => { if (!shopMode) setShopMode(true); else { setSelected(null); setSimilarTarget(null); setSheetOpen(true) } }} />}
       </div>
       <BottomSheet isOpen={sheetOpen} onClose={closeSheet} products={products} selectedProduct={selected} onSelectProduct={setSelected} similarTarget={similarTarget} onShowSimilar={setSimilarTarget} onClearSimilar={() => setSimilarTarget(null)} />
     </div>
@@ -404,7 +405,7 @@ export const ShoppableVideo = ({ products = VIDEO_PRODUCTS, mediaId = "editorial
           {preview && <ProductPreview product={preview} onEnter={clearLeave} onLeave={scheduleLeave} onOpen={() => openItem(preview)} onSimilar={() => { setSelected(preview); setSimilarTarget(preview); setSheetOpen(true); setPreview(null) }} />}
           <button data-silvr-ui="true" type="button" onClick={(event) => { event.stopPropagation(); setShopMode(false); setPreview(null) }} className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-gray-950/70 text-white" aria-label="Exit shop mode"><Icons.X size={16} /></button>
         </>}
-        {eligible && <ShopChip label={shopLabel} count={products.length} active={shopMode} video onClick={() => { if (!shopMode) setShopMode(true); else { setSelected(null); setSimilarTarget(null); setSheetOpen(true) } }} />}
+        {eligible && <ShopChip label={shopLabel} video onClick={() => { if (!shopMode) setShopMode(true); else { setSelected(null); setSimilarTarget(null); setSheetOpen(true) } }} />}
         <div data-silvr-ui="true" className="absolute inset-x-0 bottom-0 z-20 flex items-center gap-3 bg-gradient-to-t from-black/70 to-transparent p-4 text-white">
           <button type="button" onClick={(event) => { event.stopPropagation(); togglePlay() }} className="flex h-11 w-11 shrink-0 items-center justify-center" aria-label={isPlaying ? "Pause video" : "Play video"}>{isPlaying ? <Icons.Pause /> : <Icons.Play />}</button>
           <div className="h-1 flex-1 rounded-full bg-white/30"><div className="h-full rounded-full bg-white" style={{ width: `${Math.min(100, cue.timestampSeconds / (cue.durationSeconds || 45) * 100)}%` }} /></div><span className="text-xs" aria-label={cue.label}>{formatTime(cue.timestampSeconds)} / {formatTime(cue.durationSeconds || 45)}</span>
